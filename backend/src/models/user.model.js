@@ -1,23 +1,20 @@
 import mongoose from 'mongoose';
 
 const userSchema = new mongoose.Schema({
-    name:{
+    fullname: {
         type: String,
         required: true
     },
-    email:{
+    email: {    
         type: String,
-        required: true, 
+        required: true,
         unique: true
     },
-    password:{
+    password: {
         type: String,
         required: true
     },
-    refreshToken: {
-        type: String
-    },
-    groups: [{  
+    groups: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Group'
     }],
@@ -25,12 +22,6 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Expense'
     }]
+}, { timestamps: true });
 
-},
-{
-    timestamps: true
-})
-
-const User = mongoose.model('User', userSchema);
-
-export default User;
+export const User = mongoose.model('User', userSchema);
