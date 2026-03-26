@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
+import { Schema } from 'mongoose';
 
-const userSchema = new mongoose.Schema({
+const userSchema = new Schema({
     fullname: {
         type: String,
         required: true
@@ -15,11 +16,11 @@ const userSchema = new mongoose.Schema({
         required: true
     },
     groups: [{
-        type: mongoose.Schema.Types.ObjectId,
+        type: Schema.Types.ObjectId,
         ref: 'Group'
     }],
     expenses: [{
-        type: mongoose.Schema.Types.ObjectId,
+        type: Schema.Types.ObjectId,
         ref: 'Expense'
     }]
 }, { timestamps: true });
