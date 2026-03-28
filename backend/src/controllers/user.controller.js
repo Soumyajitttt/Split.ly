@@ -1,5 +1,6 @@
 import User from "../models/user.model.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import bcrypt from "bcrypt";
 
 const registerUser = asyncHandler(async (req, res) => {
     const { fullname, email, password } = req.body;
@@ -30,15 +31,15 @@ const loginUser = asyncHandler(async (req, res) => {
         return res.status(400).json({ success: false, message: "All fields are required" });
     }
 
-    //check if user exists
+    //check if user already registered
     const registeredUser = await User.findOne({ email });
     if (!registeredUser) {
         return res.status(400).json({ success: false, message: "Invalid email or password" });
     }
 
     //check if password is correct
-    const isPasswordCorrect = await registeredUser.isPasswordCorrect(password);
-    if (!isPasswordCorrect) {
+    const isPasswordValid = await registeredUser.isPasswordCorrect(password);
+    if (!isPasswordValid) {
         return res.status(400).json({ success: false, message: "Invalid email or password" });
     }
 
@@ -50,6 +51,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
     res.status(200).json({ success: true, message: "User logged in successfully", user: registeredUser, accessToken });
 });
+
 
 
 
