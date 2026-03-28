@@ -52,7 +52,7 @@ const loginUser = asyncHandler(async (req, res) => {
     res.status(200).json({ success: true, message: "User logged in successfully", user: registeredUser, accessToken });
 });
 
-
+//task
 const logoutUser = asyncHandler(async (req, res) => {
     // Invalidate the token on the client side
     res.status(200).json({ success: true, message: "User logged out successfully" });

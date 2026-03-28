@@ -25,4 +25,6 @@ const userSchema = new Schema({
     }]
 }, { timestamps: true });
 
+//task - add method to generate access token and method to compare password
+
 export const User = mongoose.model('User', userSchema);
