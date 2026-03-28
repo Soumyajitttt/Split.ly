@@ -6,6 +6,9 @@ const groupSchema = new Schema({
         type: String,   
         required: true
     },
+    description: {
+        type: String,
+    },
     members: [{
         type: Schema.Types.ObjectId,
         ref: 'User'
