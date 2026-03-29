@@ -1,6 +1,5 @@
 import { loginUser, registerUser } from "../controllers/user.controller.js";
 import { Router } from "express";
-console.log("the type of registerUser is: " + typeof registerUser);
 
 const router = Router();
 

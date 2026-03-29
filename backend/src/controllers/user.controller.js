@@ -3,6 +3,10 @@ import asyncHandler from "../utils/asyncHandler.js";
 import bcrypt from "bcrypt";
 
 const registerUser = asyncHandler(async (req, res) => {
+
+    console.log(req.body);
+    console.log(req.headers["content-type"]);
+    console.log(typeof next);
     const { fullname, email, password } = req.body;
 
     //check for all fields
