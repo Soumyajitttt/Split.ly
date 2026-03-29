@@ -3,7 +3,7 @@ import { Router } from "express";
 
 const router = Router();
 
-//task routes
+//user
 router.post("/register", registerUser);
 router.post("/login", loginUser);
 
