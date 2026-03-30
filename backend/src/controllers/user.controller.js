@@ -4,33 +4,45 @@ import bcrypt from "bcrypt";
 
 const registerUser = asyncHandler(async (req, res) => {
 
-    const { fullname, email, password } = req.body;
+    const { fullname, password } = req.body;
+    let { email, username } = req.body;
 
     //check for all fields
-    if (!fullname || !email || !password) {
+    if (!fullname || !email || !password || !username) {
         return res.status(400).json({ success: false, message: "All fields are required" });
     }  
+
+    email = email.toLowerCase().trim();
+    username = username.toLowerCase().trim();
     
     //check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
         return res.status(400).json({ success: false, message: "Email already in use" });
-    }  
+    } 
+    
+    //check if username already exists
+    const existingUsername = await User.findOne({username});
+    if(existingUsername) {
+        return res.status(400).json({ success: false, message: "User Nmae not available, try another one" });
+    } 
     
     //create new user
-    const user = new User({ fullname, email, password });
+    const user = new User({ fullname, email,username, password });
     await user.save(); // save user to database
     res.status(201).json({ success: true, message: "User registered successfully", user });
 });
 
 
 const loginUser = asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
 
     //check for all fields   
     if (!email || !password) {
         return res.status(400).json({ success: false, message: "All fields are required" });
     }
+
+    email = email.toLowerCase().trim();
 
     //check if user already registered
     const registeredUser = await User.findOne({ email });
@@ -48,9 +60,10 @@ const loginUser = asyncHandler(async (req, res) => {
     const accessToken = await registeredUser.generateAccessToken();
 
     //remove password from response
-    registeredUser.password = undefined;
+    //registeredUser.password = undefined;
+    const user = await User.findById(registeredUser._id).select("-password");
 
-    res.status(200).json({ success: true, message: "User logged in successfully", user: registeredUser, accessToken });
+    res.status(200).json({ success: true, message: "User logged in successfully", user, accessToken });
 });
 
 //task
