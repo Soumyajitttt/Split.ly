@@ -57,7 +57,7 @@ const registerUser = asyncHandler(async (req, res) => {
         return res.status(500).json({ success: false, message: "Something went wrong while registering the user" } )
     }
 
-    res.status(201).json({ success: true, message: "User registered successfully", user: createdUser });
+    return res.status(201).json({ success: true, message: "User registered successfully", user: createdUser });
 });
 
 
@@ -94,7 +94,8 @@ const loginUser = asyncHandler(async (req, res) => {
     //res.status(200).json({ success: true, message: "User logged in successfully", user, accessToken, refreshToken });
     const options = {
         httpOnly: true,
-        secure: true
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
     }
 
     return res
@@ -105,12 +106,48 @@ const loginUser = asyncHandler(async (req, res) => {
 
 //task
 const logoutUser = asyncHandler(async (req, res) => {
-    // Invalidate the token on the client side
-    res.status(200).json({ success: true, message: "User logged out successfully" });
+    const refreshToken = req.cookies.refreshToken;
+
+    console.log("Cookies:", req.cookies);
+    console.log(req.headers.cookie);
+
+    //check if refresh token exists
+    if (!refreshToken) {
+        return res.status(400).json({
+            success: false,
+            message: "Refresh token not found"
+        });
+    }
+
+    //find user with the refresh token
+    const user = await User.findByIdAndUpdate(
+        req.user._id,
+        { $unset: { refreshToken: 1 } }
+    );
+
+    //check if user exists
+    if (!user) {
+        return res.status(400).json({
+            success: false,
+            message: "User not found"
+        });
+    }
+
+    //clear refresh token cookie
+    const options = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+    }
+
+    return res
+        .status(200)
+        .clearCookie("refreshToken", options)
+        .json({
+            success: true,
+            message: "User logged out successfully"
+        });
 });
-
-
-
 
 
 export { registerUser, loginUser, logoutUser };
