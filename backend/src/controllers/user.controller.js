@@ -1,6 +1,5 @@
 import {User} from "../models/user.model.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import bcrypt from "bcrypt";
 
 const registerUser = asyncHandler(async (req, res) => {
 
@@ -30,7 +29,15 @@ const registerUser = asyncHandler(async (req, res) => {
     //create new user
     const user = new User({ fullname, email,username, password });
     await user.save(); // save user to database
-    res.status(201).json({ success: true, message: "User registered successfully", user });
+    const createdUser = await User.findById(user._id).select(
+        "-password -refreshToken"
+    )
+
+    if (!createdUser) {
+        return res.status(500).json({ success: false, message: "Something went wrong while registering the user" } )
+    }
+
+    res.status(201).json({ success: true, message: "User registered successfully", user: createdUser });
 });
 
 
@@ -61,7 +68,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
     //remove password from response
     //registeredUser.password = undefined;
-    const user = await User.findById(registeredUser._id).select("-password");
+    const user = await User.findById(registeredUser._id).select("-password -refreshToken");
 
     res.status(200).json({ success: true, message: "User logged in successfully", user, accessToken });
 });

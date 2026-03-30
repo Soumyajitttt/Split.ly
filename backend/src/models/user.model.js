@@ -31,7 +31,10 @@ const userSchema = new Schema({
     expenses: [{
         type: Schema.Types.ObjectId,
         ref: 'Expense'
-    }]
+    }],
+    refreshToken : {
+        type: String
+    }
 }, { timestamps: true });
 
 // Hash password before saving user
