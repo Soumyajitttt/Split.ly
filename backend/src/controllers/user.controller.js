@@ -108,9 +108,6 @@ const loginUser = asyncHandler(async (req, res) => {
 const logoutUser = asyncHandler(async (req, res) => {
     const refreshToken = req.cookies.refreshToken;
 
-    console.log("Cookies:", req.cookies);
-    console.log(req.headers.cookie);
-
     //check if refresh token exists
     if (!refreshToken) {
         return res.status(400).json({
