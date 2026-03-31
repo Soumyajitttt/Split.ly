@@ -1,5 +1,6 @@
 import {User} from "../models/user.model.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import jwt from "jsonwebtoken";
 
 
 const generateAccessAndRefreshTokens = async (userId) => {
@@ -106,9 +107,8 @@ const loginUser = asyncHandler(async (req, res) => {
 
 //task
 const logoutUser = asyncHandler(async (req, res) => {
-    const refreshToken = req.cookies.refreshToken;
+    const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
-    //check if refresh token exists
     if (!refreshToken) {
         return res.status(400).json({
             success: false,
@@ -116,26 +116,28 @@ const logoutUser = asyncHandler(async (req, res) => {
         });
     }
 
-    //find user with the refresh token
-    const user = await User.findByIdAndUpdate(
-        req.user._id,
-        { $unset: { refreshToken: 1 } }
-    );
-
-    //check if user exists
-    if (!user) {
-        return res.status(400).json({
-            success: false,
-            message: "User not found"
-        });
+    let decoded;
+    try {
+        decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+    } catch (err) {
+        return res.status(401).json({ message: "Invalid or expired token" });
     }
 
-    //clear refresh token cookie
+    const user = await User.findById(decoded._id);
+
+    if (!user || refreshToken !== user.refreshToken) {
+        return res.status(401).json({ message: "Invalid token" });
+    }
+
+    await User.findByIdAndUpdate(decoded._id, {
+        $unset: { refreshToken: 1 }
+    });
+
     const options = {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
-    }
+    };
 
     return res
         .status(200)
@@ -147,4 +149,5 @@ const logoutUser = asyncHandler(async (req, res) => {
 });
 
 
-export { registerUser, loginUser, logoutUser };
+
+export { registerUser, loginUser, logoutUser};
