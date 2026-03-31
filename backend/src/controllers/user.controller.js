@@ -107,6 +107,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
 //task
 const logoutUser = asyncHandler(async (req, res) => {
+    //remove refresh token from database
     await User.findByIdAndUpdate(req.user._id, {
         $unset: { refreshToken: 1 }
     });
@@ -127,5 +128,70 @@ const logoutUser = asyncHandler(async (req, res) => {
 });
 
 
+const refreshAccessToken = asyncHandler(async (req, res) => {
+    const incomingRefreshToken =
+        req.cookies.refreshToken || req.body.refreshToken;
 
-export { registerUser, loginUser, logoutUser};
+    // Check if token exists
+    if (!incomingRefreshToken) {
+        return res.status(401).json({
+            success: false,
+            message: "Refresh token not found"
+        });
+    }
+
+    // Verify token
+    let decoded;
+    try {
+        decoded = jwt.verify(
+            incomingRefreshToken,
+            process.env.REFRESH_TOKEN_SECRET
+        );
+    } catch (err) {
+        return res.status(401).json({
+            success: false,
+            message: "Invalid or expired refresh token"
+        });
+    }
+
+    // Find user
+    const user = await User.findById(decoded._id);
+
+    // Validate token with DB
+    if (!user || incomingRefreshToken !== user.refreshToken) {
+        return res.status(401).json({
+            success: false,
+            message: "Refresh token is invalid or already used"
+        });
+    }
+
+    // Generate new tokens 
+    const { accessToken, refreshToken: newRefreshToken } =
+        await generateAccessAndRefreshTokens(user._id);
+
+    // Save new refresh token in DB
+    user.refreshToken = newRefreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    const options = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+    };
+
+    return res
+        .status(200)
+        .cookie("accessToken", accessToken, options)
+        .cookie("refreshToken", newRefreshToken, options)
+        .json({
+            success: true,
+            message: "Access token refreshed successfully",
+            data: {
+                accessToken,
+                refreshToken: newRefreshToken
+            }
+        });
+});
+
+
+export { registerUser, loginUser, logoutUser, refreshAccessToken };
