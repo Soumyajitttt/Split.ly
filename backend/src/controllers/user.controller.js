@@ -107,29 +107,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
 //task
 const logoutUser = asyncHandler(async (req, res) => {
-    const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
-
-    if (!refreshToken) {
-        return res.status(400).json({
-            success: false,
-            message: "Refresh token not found"
-        });
-    }
-
-    let decoded;
-    try {
-        decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
-    } catch (err) {
-        return res.status(401).json({ message: "Invalid or expired token" });
-    }
-
-    const user = await User.findById(decoded._id);
-
-    if (!user || refreshToken !== user.refreshToken) {
-        return res.status(401).json({ message: "Invalid token" });
-    }
-
-    await User.findByIdAndUpdate(decoded._id, {
+    await User.findByIdAndUpdate(req.user._id, {
         $unset: { refreshToken: 1 }
     });
 
