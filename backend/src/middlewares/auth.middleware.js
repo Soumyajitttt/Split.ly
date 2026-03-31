@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import asyncHandler from "../utils/asyncHandler.js";
 
 const authenticateUser = asyncHandler(async (req, res, next) => {
+    // Check for the presence of the Authorization header
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
         return res.status(401).json({ success: false, message: "Unauthorized" });
@@ -10,6 +11,7 @@ const authenticateUser = asyncHandler(async (req, res, next) => {
     const token = authHeader.split(" ")[1];
 
     try {
+        // Verify the token and extract the user ID
         const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
         const user = await User.findById(decoded._id).select("-password");
         if (!user) {
