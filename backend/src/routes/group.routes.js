@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createGroup, joinGroup, getMyGroups, leaveGroup } from "../controllers/group.controller.js";
+import { createGroup, joinGroup, getMyGroups, leaveGroup, getGroupDetails } from "../controllers/group.controller.js";
 import authenticateUser from "../middlewares/auth.middleware.js";
 
 const router = Router();
@@ -9,6 +9,6 @@ router.post("/join-group", authenticateUser, joinGroup);
 router.get("/my-groups", authenticateUser, getMyGroups);
 router.post("/:groupId/leave", authenticateUser, leaveGroup);
 // router.get("/all-groups", authenticateUser, getAllGroups);
-// router.get("/:groupId", authenticateUser, getGroupDetails);
+router.get("/:groupId", authenticateUser, getGroupDetails);
 
 export default router;
