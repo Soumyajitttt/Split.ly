@@ -149,7 +149,7 @@ const getAllGroups = asyncHandler(async (req, res) => {
 });
 
 const leaveGroup = asyncHandler(async (req, res) => {
-    const { groupId } = req.body;
+    const { groupId } = req.params;
 
     if (!groupId) {
         return res.status(400).json({
@@ -209,5 +209,24 @@ const leaveGroup = asyncHandler(async (req, res) => {
     });
 });
 
+const getGroupDetails = asyncHandler(async (req, res) => {
+    const { groupId } = req.params;
 
-export { createGroup, joinGroup, getMyGroups, leaveGroup };
+    if (!groupId) {
+        return res.status(400).json({
+            success: false,
+            message: "Group ID is required"
+        });
+    }    
+
+    const group = await Group.findById(groupId)
+        .populate("members", "fullname username email")
+        .populate("createdBy", "fullname username");
+    if (!group) {
+        return res.status(404).json({ success: false, message: "Group not found" });
+    }
+    return res.status(200).json({ success: true, group });
+});
+
+    
+export { createGroup, joinGroup, getMyGroups, leaveGroup, getGroupDetails, getAllGroups};
