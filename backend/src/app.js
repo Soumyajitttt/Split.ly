@@ -15,9 +15,11 @@ app.use(cookieParser());
 
 //routes
 import userRoutes from "./routes/user.routes.js";
+import groupRoutes from "./routes/group.routes.js";
 
 
 app.use("/api/v1.0.0/users", userRoutes);
+app.use("/api/v1.0.0/groups", groupRoutes);
 
 
 export default app;

@@ -9,6 +9,11 @@ const groupSchema = new Schema({
     description: {
         type: String,
     },
+    createdBy: {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+    },
     members: [{
         type: Schema.Types.ObjectId,
         ref: 'User'
