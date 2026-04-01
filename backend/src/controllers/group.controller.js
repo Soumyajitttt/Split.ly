@@ -146,7 +146,7 @@ const getAllGroups = asyncHandler(async (req, res) => {
     .populate("members", "fullname username email") 
     .populate("createdBy", "fullname username"); 
     return res.status(200).json({ success: true, groups }); 
-});
+});//not used currently, but can be used in future to show all groups in the app
 
 const leaveGroup = asyncHandler(async (req, res) => {
     const { groupId } = req.params;
@@ -226,7 +226,7 @@ const getGroupDetails = asyncHandler(async (req, res) => {
         return res.status(404).json({ success: false, message: "Group not found" });
     }
     return res.status(200).json({ success: true, group });
-});
+});//not used currently, but can be used in future to show group details when user clicks on a group in the UI
 
     
 export { createGroup, joinGroup, getMyGroups, leaveGroup, getGroupDetails, getAllGroups};
