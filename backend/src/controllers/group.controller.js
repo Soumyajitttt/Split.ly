@@ -44,7 +44,6 @@ const generateUniqueGroupCode = async () => {
     throw new Error("Failed to generate unique group code");
 };
 
-
 const createGroup = asyncHandler(async (req, res) => {
     const { name, description } = req.body;
 
@@ -128,14 +127,26 @@ const joinGroup = asyncHandler(async (req, res) => {
     });
 });
 
-const getAllGroups = asyncHandler(async (req, res) => {
-    const groups = await Group.find().sort({ createdAt: -1 })
-        .populate("members", "fullname username email")
-        .populate("createdBy", "fullname username");
-    return res.status(200).json({ success: true, groups });
+const getMyGroups = asyncHandler(async (req, res) => {
+    const groups = await Group.find({
+        members: req.user._id
+    })
+    .sort({ createdAt: -1 })
+    .populate("members", "fullname username email")
+    .populate("createdBy", "fullname username");
 
+    return res.status(200).json({
+        success: true,
+        groups
+    });
 });
 
+const getAllGroups = asyncHandler(async (req, res) => { 
+    const groups = await Group.find().sort({ createdAt: -1 }) 
+    .populate("members", "fullname username email") 
+    .populate("createdBy", "fullname username"); 
+    return res.status(200).json({ success: true, groups }); 
+});
 
 const leaveGroup = asyncHandler(async (req, res) => {
     const { groupId } = req.body;
@@ -199,4 +210,4 @@ const leaveGroup = asyncHandler(async (req, res) => {
 });
 
 
-export { createGroup, joinGroup, getAllGroups, leaveGroup };
+export { createGroup, joinGroup, getMyGroups, leaveGroup };
