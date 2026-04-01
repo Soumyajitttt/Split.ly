@@ -12,7 +12,8 @@ const groupSchema = new Schema({
     groupcode: {
         type: String,
         unique: true,
-        required: true
+        required: true,
+        index: true
     },
     createdBy: {
         type: Schema.Types.ObjectId,
