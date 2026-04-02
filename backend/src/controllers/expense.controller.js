@@ -16,6 +16,7 @@ const createExpense = asyncHandler(async (req, res) => {
         });
     }
 
+    // Validate amount
     if (amount <= 0) {
         return res.status(400).json({
             message: "Amount must be greater than 0"
@@ -62,9 +63,11 @@ const createExpense = asyncHandler(async (req, res) => {
         $addToSet: { expenses: expense._id }
     });
 
-    // Add expense reference to each user in splitamong
+    // Add expense reference to each user 
+    const allUsers = [...new Set([...splitamong, paidby.toString()])];
+
     await User.updateMany(
-        { _id: { $in: splitamong } },
+        { _id: { $in: allUsers } },
         { $addToSet: { expenses: expense._id } }
     );
 
@@ -75,5 +78,25 @@ const createExpense = asyncHandler(async (req, res) => {
     });
 });
 
+const getExpensesForGroup = asyncHandler(async (req, res) => {
+    const { groupId } = req.params; 
+    const group = await Group.findById(groupId).populate({
+        path: "expenses",
+        populate: {
+            path: "paidby",
+            select: "name email"
+        }
+    });
 
-export { createExpense };
+    if (!group) {
+        return res.status(404).json({ message: "Group not found" });
+    }
+
+    res.status(200).json({
+        success: true,
+        expenses: group.expenses
+    });
+});
+
+
+export { createExpense, getExpensesForGroup };
