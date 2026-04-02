@@ -6,13 +6,19 @@ import asyncHandler from "../utils/asyncHandler.js";
 
 const createExpense = asyncHandler(async (req, res) => {
     const { description, amount, splitamong } = req.body;
-    const { paidby } = req.user;
+    const paidby = req.user._id;
     const { groupId } = req.params;
 
     // Validate input
     if (!description || !amount || !splitamong?.length) {
         return res.status(400).json({
             message: "All fields are required"
+        });
+    }
+
+    if (amount <= 0) {
+        return res.status(400).json({
+            message: "Amount must be greater than 0"
         });
     }
 
@@ -24,7 +30,7 @@ const createExpense = asyncHandler(async (req, res) => {
     }
 
     // Check payer
-    if (!group.members.some(member => member.equals(paidby))) {
+    if (!group.members.some(member => member.toString() === paidby.toString())) {
         return res.status(400).json({
             message: "You must be a member of the group"
         });
@@ -32,7 +38,7 @@ const createExpense = asyncHandler(async (req, res) => {
 
     // Check split members
     const allMembersValid = splitamong.every(userId =>
-        group.members.some(member => member.equals(userId))
+        group.members.some(member => member.toString() === userId.toString())
     );
 
     if (!allMembersValid) {
@@ -51,10 +57,12 @@ const createExpense = asyncHandler(async (req, res) => {
 
     await expense.save();
 
+    // Add expense reference to group 
     await Group.findByIdAndUpdate(group._id, {
         $addToSet: { expenses: expense._id }
     });
 
+    // Add expense reference to each user in splitamong
     await User.updateMany(
         { _id: { $in: splitamong } },
         { $addToSet: { expenses: expense._id } }
@@ -66,5 +74,6 @@ const createExpense = asyncHandler(async (req, res) => {
         expense
     });
 });
+
 
 export { createExpense };
