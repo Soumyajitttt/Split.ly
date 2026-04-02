@@ -6,7 +6,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 
 const createExpense = asyncHandler(async (req, res) => {
     const { description, amount, splitamong } = req.body;
-    const paidby = req.user._id;
+    const { paidby } = req.user;
     const { groupId } = req.params;
 
     // Validate input
