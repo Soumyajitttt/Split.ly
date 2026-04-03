@@ -80,6 +80,8 @@ const createExpense = asyncHandler(async (req, res) => {
 
 const getExpensesForGroup = asyncHandler(async (req, res) => {
     const { groupId } = req.params; 
+
+    // Check if group exists 
     const group = await Group.findById(groupId).populate({
         path: "expenses",
         populate: {
@@ -98,5 +100,38 @@ const getExpensesForGroup = asyncHandler(async (req, res) => {
     });
 });
 
+const getExpensesForUser = asyncHandler(async (req, res) => {
+    const userId = req.user._id;
 
-export { createExpense, getExpensesForGroup };
+    // Find expenses where user is either the payer or among those who split the expense
+    const expenses = await Expense.find({
+        $or: [
+            { paidby: userId },
+            { splitamong: userId }
+        ]
+    }).sort({ createdAt: -1 })
+    .populate("group", "name");
+
+    res.status(200).json({
+        success: true,
+        expenses
+    });
+});
+
+//task optimize for user and group
+const deleteExpense = asyncHandler(async (req, res) => {
+    const { expenseId } = req.params;
+    const expense = await Expense.findById(expenseId);
+    if (!expense) {
+        return res.status(404).json({ message: "Expense not found" });
+    }
+    await Expense.findByIdAndDelete(expenseId);
+
+    res.status(200).json({
+        success: true,
+        message: "Expense deleted successfully"
+    });
+});
+
+
+export { createExpense, getExpensesForGroup, getExpensesForUser, deleteExpense };
