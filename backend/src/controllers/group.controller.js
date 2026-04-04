@@ -1,48 +1,7 @@
 import {Group} from "../models/group.model.js";
 import {User} from "../models/user.model.js";
 import asyncHandler from "../utils/asyncHandler.js";
-
-
-// const generateUniqueGroupCode = async () => {
-//     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-//     let groupCode;
-//     let isUnique = false;
-//     while (!isUnique) {
-//         groupCode = '';
-//         for (let i = 0; i < 6; i++) {
-//             groupCode += characters.charAt(Math.floor(Math.random() * characters.length));
-//         }
-//         const existingGroup = await Group.findOne({ groupcode: groupCode });
-//         if (!existingGroup) {
-//             isUnique = true;
-//         }
-//     }
-//     return groupCode;
-// };
-
-// Improved version with limited attempts to prevent infinite loop 
-const generateUniqueGroupCode = async () => {
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let attempts = 0;
-
-    while (attempts < 5) {
-        let groupCode = '';
-
-        for (let i = 0; i < 6; i++) {
-            groupCode += characters.charAt(Math.floor(Math.random() * characters.length));
-        }
-
-        const existingGroup = await Group.findOne({ groupcode: groupCode });
-
-        if (!existingGroup) {
-            return groupCode;
-        }
-
-        attempts++;
-    }
-
-    throw new Error("Failed to generate unique group code");
-};
+import { generateUniqueGroupCode } from "../utils/generateCode.js";
 
 const createGroup = asyncHandler(async (req, res) => {
     const { name, description } = req.body;
@@ -226,7 +185,7 @@ const getGroupDetails = asyncHandler(async (req, res) => {
         return res.status(404).json({ success: false, message: "Group not found" });
     }
     return res.status(200).json({ success: true, group });
-});//not used currently, but can be used in future to show group details when user clicks on a group in the UI
+});
 
     
 export { createGroup, joinGroup, getMyGroups, leaveGroup, getGroupDetails, getAllGroups};

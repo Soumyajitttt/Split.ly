@@ -2,6 +2,8 @@ import { Expense } from "../models/expense.model.js";
 import { Group } from "../models/group.model.js";
 import { User } from "../models/user.model.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import { formatExpenses } from "../utils/formatExpenses.js";
+import { settleBalances } from "../utils/settleBalances.js";
 
 
 const createExpense = asyncHandler(async (req, res) => {
@@ -79,42 +81,57 @@ const createExpense = asyncHandler(async (req, res) => {
 });
 
 const getExpensesForGroup = asyncHandler(async (req, res) => {
-    const { groupId } = req.params; 
+    const { groupId } = req.params;
+    const userId = req.user._id;
 
-    // Check if group exists 
+    // Check if group exists and user is a member
     const group = await Group.findById(groupId).populate({
         path: "expenses",
-        populate: {
-            path: "paidby",
-            select: "name email"
-        }
+        populate: [
+            { path: "paidby", select: "fullname" },
+            { path: "splitamong", select: "fullname" }
+        ]
     });
 
     if (!group) {
         return res.status(404).json({ message: "Group not found" });
     }
 
+    // Check if user is a member of the group
+    if (!group.members.some(member => member.toString() === userId.toString())) {
+        return res.status(403).json({ message: "You are not a member of this group" });
+    }
+
+    // Transform data for UI
+    const formattedExpenses = formatExpenses(group.expenses, userId);
+
     res.status(200).json({
         success: true,
-        expenses: group.expenses
+        expenses: formattedExpenses
     });
 });
 
 const getExpensesForUser = asyncHandler(async (req, res) => {
     const userId = req.user._id;
 
-    // Find expenses where user is either the payer or among those who split the expense
+    // Find all expenses where user is either the payer or a split member
     const expenses = await Expense.find({
         $or: [
             { paidby: userId },
             { splitamong: userId }
         ]
-    }).sort({ createdAt: -1 })
-    .populate("group", "name");
+    })
+    .populate("paidby", "fullname")
+    .populate("splitamong", "fullname")
+    .populate("group", "name")
+    .sort({ createdAt: -1 });
+
+    // Transform data for UI
+    const formattedExpenses = formatExpenses(expenses, userId);
 
     res.status(200).json({
         success: true,
-        expenses
+        expenses: formattedExpenses
     });
 });
 
@@ -151,5 +168,34 @@ const deleteExpense = asyncHandler(async (req, res) => {
     });
 });
 
+const getGroupSummary = asyncHandler(async (req, res) => {
+    const { groupId } = req.params;
 
-export { createExpense, getExpensesForGroup, getExpensesForUser, deleteExpense };
+    const group = await Group.findById(groupId)
+        .populate("members", "fullname")
+        .populate("expenses");
+
+    if (!group) {
+        return res.status(404).json({ message: "Group not found" });
+    }
+
+    const totalExpense = group.expenses.reduce(
+        (sum, exp) => sum + exp.amount,
+        0
+    );
+
+    const { settlements } = settleBalances(group.expenses, group.members);
+
+    res.status(200).json({
+        success: true,
+        group: {
+            name: group.name,
+            members: group.members
+        },
+        totalExpense,
+        settlements
+    });
+});
+
+
+export { createExpense, getExpensesForGroup, getExpensesForUser, deleteExpense, getGroupSummary };
