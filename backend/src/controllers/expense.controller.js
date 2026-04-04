@@ -118,14 +118,32 @@ const getExpensesForUser = asyncHandler(async (req, res) => {
     });
 });
 
-//task optimize for user and group
 const deleteExpense = asyncHandler(async (req, res) => {
     const { expenseId } = req.params;
-    const expense = await Expense.findById(expenseId);
+
+    const expense = await Expense.findByIdAndDelete(expenseId);
+
+    // Check if expense exists
     if (!expense) {
         return res.status(404).json({ message: "Expense not found" });
     }
-    await Expense.findByIdAndDelete(expenseId);
+
+    // Remove expense reference from group
+    await Group.findByIdAndUpdate(expense.group, {
+        $pull: { expenses: expense._id }
+    });
+
+    // Remove expense reference from users (both payer and split members)
+    const allUsers = [...new Set([
+        ...expense.splitamong.map(id => id.toString()),
+        expense.paidby.toString()
+    ])];
+
+    // Remove expense reference from each user
+    await User.updateMany(
+        { _id: { $in: allUsers } },
+        { $pull: { expenses: expense._id } }
+    );
 
     res.status(200).json({
         success: true,
