@@ -138,25 +138,31 @@ const getExpensesForUser = asyncHandler(async (req, res) => {
 const deleteExpense = asyncHandler(async (req, res) => {
     const { expenseId } = req.params;
 
-    const expense = await Expense.findByIdAndDelete(expenseId);
+    const expense = await Expense.findById(expenseId);
 
     // Check if expense exists
     if (!expense) {
         return res.status(404).json({ message: "Expense not found" });
     }
 
-    // Remove expense reference from group
+    // Only the user who created the expense can delete it
+    if (expense.paidby.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: "Not allowed" });
+    }
+
+    // Delete the expense
+    await Expense.findByIdAndDelete(expenseId);
+
+    // Remove expense reference from group and users
     await Group.findByIdAndUpdate(expense.group, {
         $pull: { expenses: expense._id }
     });
 
-    // Remove expense reference from users (both payer and split members)
     const allUsers = [...new Set([
         ...expense.splitamong.map(id => id.toString()),
         expense.paidby.toString()
     ])];
 
-    // Remove expense reference from each user
     await User.updateMany(
         { _id: { $in: allUsers } },
         { $pull: { expenses: expense._id } }
@@ -171,19 +177,35 @@ const deleteExpense = asyncHandler(async (req, res) => {
 const getGroupSummary = asyncHandler(async (req, res) => {
     const { groupId } = req.params;
 
+    // Check if group exists and user is a member
     const group = await Group.findById(groupId)
         .populate("members", "fullname")
-        .populate("expenses");
+        .populate({
+            path: "expenses",
+            populate: [
+                { path: "paidby" },
+                { path: "splitamong" }
+            ]
+        })
 
+    // Check if group exists
     if (!group) {
         return res.status(404).json({ message: "Group not found" });
     }
 
+    // Check if user is a member of the group
+    if (!group.members.some(member => member.toString() === req.user._id.toString())) {
+        return res.status(403).json({ message: "Not authorized" });
+    }
+
+
+    // Calculate total expenses and settlements
     const totalExpense = group.expenses.reduce(
         (sum, exp) => sum + exp.amount,
         0
     );
 
+    // Calculate settlements using the settleBalances utility function
     const { settlements } = settleBalances(group.expenses, group.members);
 
     res.status(200).json({
