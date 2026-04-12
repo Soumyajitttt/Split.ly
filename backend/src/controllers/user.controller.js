@@ -2,7 +2,7 @@ import {User} from "../models/user.model.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import jwt from "jsonwebtoken";
 
-
+//task add google auth
 const generateAccessAndRefreshTokens = async (userId) => {
     try {
         const user = await User.findById(userId);
