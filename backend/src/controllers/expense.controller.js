@@ -8,12 +8,12 @@ import { settleBalances } from "../utils/settleBalances.js";
 //testing not done yet
 //task add payment gateway integration
 const createExpense = asyncHandler(async (req, res) => {
-    const { description, amount, splitamong } = req.body;
-    const paidby = req.user._id;
+    const { description, amount, splitAmong } = req.body;
+    const paidBy = req.user._id;
     const { groupId } = req.params;
 
     // Validate input
-    if (!description || !amount || !splitamong?.length) {
+    if (!description || !amount || !splitAmong?.length) {
         return res.status(400).json({
             message: "All fields are required"
         });
@@ -41,7 +41,7 @@ const createExpense = asyncHandler(async (req, res) => {
     }
 
     // Check split members
-    const allMembersValid = splitamong.every(userId =>
+    const allMembersValid = splitAmong.every(userId =>
         group.members.some(member => member.toString() === userId.toString())
     );
 
@@ -54,8 +54,8 @@ const createExpense = asyncHandler(async (req, res) => {
     const expense = new Expense({
         description,
         amount,
-        paidby,
-        splitamong,
+        paidBy,
+        splitAmong,
         group: group._id
     });
 
@@ -67,7 +67,7 @@ const createExpense = asyncHandler(async (req, res) => {
     });
 
     // Add expense reference to each user 
-    const allUsers = [...new Set([...splitamong, paidby.toString()])];
+    const allUsers = [...new Set([...splitAmong, paidBy.toString()])];
 
     await User.updateMany(
         { _id: { $in: allUsers } },
@@ -90,7 +90,7 @@ const getExpensesForGroup = asyncHandler(async (req, res) => {
         path: "expenses",
         populate: [
             { path: "paidby", select: "fullname" },
-            { path: "splitamong", select: "fullname" }
+            { path: "splitAmong", select: "fullname" }
         ]
     });
 
@@ -119,11 +119,11 @@ const getExpensesForUser = asyncHandler(async (req, res) => {
     const expenses = await Expense.find({
         $or: [
             { paidby: userId },
-            { splitamong: userId }
+            { splitAmong: userId }
         ]
     })
     .populate("paidby", "fullname")
-    .populate("splitamong", "fullname")
+    .populate("splitAmong", "fullname")
     .populate("group", "name")
     .sort({ createdAt: -1 });
 
@@ -160,7 +160,7 @@ const deleteExpense = asyncHandler(async (req, res) => {
     });
 
     const allUsers = [...new Set([
-        ...expense.splitamong.map(id => id.toString()),
+        ...expense.splitAmong.map(id => id.toString()),
         expense.paidby.toString()
     ])];
 
@@ -184,8 +184,8 @@ const getGroupSummary = asyncHandler(async (req, res) => {
         .populate({
             path: "expenses",
             populate: [
-                { path: "paidby" },
-                { path: "splitamong" }
+                { path: "paidBy" },
+                { path: "splitAmong" }
             ]
         })
 

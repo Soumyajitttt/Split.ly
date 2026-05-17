@@ -7,13 +7,13 @@ export const settleBalances = (expenses, members) => {
 
     // Build balances
     expenses.forEach(exp => {
-        const share = exp.amount / exp.splitamong.length;
+        const share = exp.amount / exp.splitAmong.length;
 
-        exp.splitamong.forEach(user => {
+        exp.splitAmong.forEach(user => {
             balances[user] -= share;
         });
 
-        balances[exp.paidby] += exp.amount;
+        balances[exp.paidBy] += exp.amount;
     });
 
     // Separate
