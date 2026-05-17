@@ -3,26 +3,26 @@ import AuthLayout from "./layouts/AuthLayout";
 import MainLayout from "./layouts/MainLayout";
 import AdminLayout from "./layouts/AdminLayout";
 
-import Login from "./pages/auth/Login";
-import Register from "./pages/auth/Register";
+import Login from "./Pages/auth/Login";
+import Register from "./Pages/auth/Register";
 
-import Dashboard from "./pages/dashboard/Dashboard";
-import Expenses from "./pages/expenses/Expenses";
-import ExpenseDetails from "./pages/expenses/ExpenseDetails";
-import AddExpense from "./pages/expenses/AddExpense";
+import Dashboard from "./Pages/dashboard/Dashboard";
+import Expenses from "./Pages/expenses/Expenses";
+import ExpenseDetails from "./Pages/expenses/ExpenseDetails";
+import AddExpense from "./Pages/expenses/AddExpense";
 
-import Groups from "./pages/groups/Groups";
-import GroupDetails from "./pages/groups/GroupDetails";
-import GroupAddExpense from "./pages/groups/GroupAddExpense";
-import GroupMembers from "./pages/groups/GroupMembers";
+import Groups from "./Pages/groups/Groups";
+import GroupDetails from "./Pages/groups/GroupDetails";
+import GroupAddExpense from "./Pages/groups/GroupAddExpense";
+import GroupMembers from "./Pages/groups/GroupMembers";
 
-import Activity from "./pages/activity/Activity";
-import Balances from "./pages/balances/Balances";
-import Settlements from "./pages/balances/Settlements";
-import Profile from "./pages/profile/Profile";
+import Activity from "./Pages/activity/Activity";
+import Balances from "./Pages/balances/Balances";
+import Settlements from "./Pages/balances/Settlements";
+import Profile from "./Pages/profile/Profile";
 
-import AdminUsers from "./pages/admin/AdminUsers";
-import AdminActivity from "./pages/admin/AdminActivity";
+import AdminUsers from "./Pages/admin/AdminUsers";
+import AdminActivity from "./Pages/admin/AdminActivity";
 
 export default function App() {
   return (

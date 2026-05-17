@@ -220,5 +220,26 @@ const getGroupSummary = asyncHandler(async (req, res) => {
     });
 });
 
+const getOverallSummary = async (req, res) => {
+  const userId = req.user._id;
 
-export { createExpense, getExpensesForGroup, getExpensesForUser, deleteExpense, getGroupSummary };
+  const expenses = await Expense.find({ participants: userId });
+
+  let totalYouOwe = 0;
+  let totalYouAreOwed = 0;
+
+  expenses.forEach((e) => {
+    if (String(e.paidBy) === String(userId)) {
+      totalYouAreOwed += e.amount / e.participants.length;
+    } else {
+      totalYouOwe += e.amount / e.participants.length;
+    }
+  });
+
+  const netBalance = totalYouAreOwed - totalYouOwe;
+
+  res.json({ totalYouOwe, totalYouAreOwed, netBalance });
+};
+
+
+export { createExpense, getExpensesForGroup, getExpensesForUser, deleteExpense, getGroupSummary, getOverallSummary };

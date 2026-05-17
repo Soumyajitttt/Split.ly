@@ -1,4 +1,4 @@
-import { loginUser, registerUser, logoutUser, refreshAccessToken } from "../controllers/user.controller.js";
+import { loginUser, registerUser, logoutUser, refreshAccessToken, getCurrentUser } from "../controllers/user.controller.js";
 import { Router } from "express";
 import authenticateUser from "../middlewares/auth.middleware.js";
 
@@ -8,6 +8,7 @@ router.post("/register", registerUser);
 router.post("/login", loginUser);
 router.post("/logout",authenticateUser, logoutUser);
 router.post("/refresh-token", refreshAccessToken);
+router.get("/me", authenticateUser, getCurrentUser);
 
 
 export default router;
