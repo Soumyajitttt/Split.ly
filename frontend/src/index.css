@@ -519,10 +519,11 @@ nav {
   background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(4px);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   z-index: 200;
-  padding: 20px;
+  padding: 72px 20px 20px;
+  overflow-y: auto;
   animation: fadeIn 0.15s ease both;
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

@@ -128,13 +128,15 @@ export default function Landing() {
   const allMarquee = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS];
 
   const initials = user?.fullname?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || 'U';
+  const AVATAR_COLORS = ['#e53935','#d81b60','#8e24aa','#5e35b1','#1e88e5','#00897b','#43a047','#fb8c00','#6d4c41','#039be5'];
+  const avatarBg = AVATAR_COLORS[(user?.username || user?.fullname || 'U').charCodeAt(0) % AVATAR_COLORS.length];
 
   const navActions = user ? (
     <>
       <button className="btn btn-ghost btn-sm"  onClick={() => navigate('/groups')}>GROUPS</button>
       <button className="btn btn-ghost btn-sm"  onClick={() => navigate('/dashboard')}>DASHBOARD</button>
       {/* <button className="btn btn-primary btn-sm" onClick={handleLogout}>Log Out</button> */}
-      <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: 'white', fontWeight: 600 }} className="sidebar-avatar">
+      <span className="sidebar-avatar" style={{ background: avatarBg, fontFamily: "'Google Sans', 'Plus Jakarta Sans', sans-serif", fontSize: 16, color: 'white', fontWeight: 500, letterSpacing: 0 }}>
         {initials}
       </span>
     </>

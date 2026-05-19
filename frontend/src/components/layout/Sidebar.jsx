@@ -36,6 +36,8 @@ export default function Sidebar({ open, onClose }) {
   };
 
   const initials = user?.fullname?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || 'U';
+  const AVATAR_COLORS = ['#e53935','#d81b60','#8e24aa','#5e35b1','#1e88e5','#00897b','#43a047','#fb8c00','#6d4c41','#039be5'];
+  const avatarBg = AVATAR_COLORS[(user?.username || user?.fullname || 'U').charCodeAt(0) % AVATAR_COLORS.length];
 
   const navItems = [
     { path: '/dashboard', icon: HomeIcon, iconActive: HomeIconSolid, label: 'Dashboard' },
@@ -78,7 +80,12 @@ export default function Sidebar({ open, onClose }) {
         <div className="sidebar-bottom">
           <div className="sidebar-section">
             <div className="sidebar-user">
-              <div className="sidebar-avatar">{initials}</div>
+              <div
+                className="sidebar-avatar"
+                style={{ background: avatarBg, fontFamily: "'Google Sans', 'Plus Jakarta Sans', sans-serif", fontSize: 16, fontWeight: 500, letterSpacing: 0, color: 'white' }}
+              >
+                {initials}
+              </div>
               <div>
                 <div className="sidebar-user-name">{user?.username || 'user'}</div>
                 <div className="sidebar-user-role">Member</div>
