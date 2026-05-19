@@ -21,7 +21,7 @@ export function Logo({ onClick }) {
           letterSpacing: '-0.03em',
         }}
       >
-        SplitX
+        Split.ly
       </span>
       <span
         style={{

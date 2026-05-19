@@ -91,7 +91,7 @@ export default function Signup() {
         <div className="auth-right">
           <div className="auth-card">
             <div className="auth-card-title">Create Account</div>
-            <div className="auth-card-sub">Join SplitX for free</div>
+            <div className="auth-card-sub">Join Split.ly for free</div>
 
             <div className="auth-form">
               <FormGroup label="Full Name">

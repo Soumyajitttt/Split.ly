@@ -1,4 +1,4 @@
-# SplitX — Split Expenses, Not Friendships
+# Split.ly — Split Expenses, Not Friendships
 
 A full-stack MERN expense-splitting app with Google OAuth, JWT authentication, and a sleek dark UI.
 
@@ -7,7 +7,7 @@ A full-stack MERN expense-splitting app with Google OAuth, JWT authentication, a
 ## Project Structure
 
 ```
-splitx/
+split.ly/
 ├── backend/          ← Express + MongoDB API
 └── frontend/         ← React + Vite + Tailwind
 ```

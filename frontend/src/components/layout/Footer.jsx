@@ -29,7 +29,7 @@ export default function Footer() {
                 letterSpacing: '-0.03em',
               }}
             >
-              SplitX
+              Split.ly
             </span>
           </div>
           <p
@@ -146,7 +146,7 @@ export default function Footer() {
             letterSpacing: '0.05em',
           }}
         >
-          © {new Date().getFullYear()} SplitX — All rights reserved
+          © {new Date().getFullYear()} Split.ly — All rights reserved
         </p>
         <div style={{ display: 'flex', gap: 8 }}>
           {['Made in India', 'Open Beta', 'v2.0.0'].map(b => (
