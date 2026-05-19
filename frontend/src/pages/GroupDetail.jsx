@@ -102,8 +102,6 @@ export default function GroupDetail() {
     } finally { setSubmitting(false); }
   };
 
-  // FIX 6: match expenses using stable IDs (payerId, splitamong user IDs) rather
-  // than display-name strings, which break with duplicate names or "You" aliasing
 const handleSettleDebt = async (settlement) => {
   setSettlingId(settlement.fromId + settlement.toId);
   try {
@@ -172,11 +170,16 @@ const handleSettleDebt = async (settlement) => {
     return net;
   }, 0);
 
-  const activeExpenses  = expenses.filter(e => !e.settled);
-  const settledExpenses = expenses.filter(e =>  e.settled);
-  const myPending       = activeExpenses.filter(e => e.status === 'PENDING');
-  const myPaid          = activeExpenses.filter(e => e.status === 'YOU PAID');
-  const totalIOwe       = myPending.reduce((s, e) => s + (e.youOwe || 0), 0);
+  // Split expenses into settlement payment records vs regular expenses.
+  // Settlement records belong ONLY in the Settlements tab; regular expenses
+  // belong ONLY in the Records tab. This prevents duplicates and noise.
+  const settlementRecords = expenses.filter(e => e.isSettlementRecord);
+  const regularExpenses   = expenses.filter(e => !e.isSettlementRecord);
+
+  const activeExpenses = regularExpenses.filter(e => !e.settled);
+  const myPending      = activeExpenses.filter(e => e.status === 'PENDING');
+  const myPaid         = activeExpenses.filter(e => e.status === 'YOU PAID');
+  const totalIOwe      = myPending.reduce((s, e) => s + (e.youOwe || 0), 0);
 
   const sharePreview = expForm.amount && expForm.splitamong.length
     ? (Number(expForm.amount) / expForm.splitamong.length).toFixed(2)
@@ -190,13 +193,13 @@ const handleSettleDebt = async (settlement) => {
         actions={
           <>
             <button
-            className="btn btn-ghost btn-sm"
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-            onClick={() => navigate('/groups')}
-          >
-            <ArrowLeftIcon style={{ width: 15, height: 15 }} />
-            Groups
-          </button>
+              className="btn btn-ghost btn-sm"
+              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              onClick={() => navigate('/groups')}
+            >
+              <ArrowLeftIcon style={{ width: 15, height: 15 }} />
+              Groups
+            </button>
             <button
               className="btn btn-primary btn-sm"
               style={{ display: 'flex', alignItems: 'center', gap: 6 }}
@@ -320,11 +323,10 @@ const handleSettleDebt = async (settlement) => {
           <div style={{ display: 'flex', gap: 16 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               {/* Tab Bar */}
-              {/* Tab Bar */}
               <div className="tab-bar">
                 {[
                   ['balances', `Balances${settlements.length ? ` (${settlements.length})` : ''}`],
-                  ['received', `Settlements${settledExpenses.length ? ` (${settledExpenses.length})` : ''}`],
+                  ['received', `Settlements${settlementRecords.length ? ` (${settlementRecords.length})` : ''}`],
                   ['all',      `Records`],
                 ].map(([id, label]) => (
                   <button key={id} className={`tab ${activeTab === id ? 'active' : ''}`} onClick={() => setActiveTab(id)}>
@@ -359,46 +361,14 @@ const handleSettleDebt = async (settlement) => {
                 </div>
               )}
 
-              {/* Pending Tab */}
-              {/* {activeTab === 'unpaid' && (
-                <div>
-                  {myPending.length === 0 ? (
-                    <EmptyState icon={<CheckCircleIcon style={{ width: 32, height: 32, color: "var(--secondary)" }} />} text="Nothing pending for you!" />
-                  ) : (
-                    <>
-                      <div
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 8,
-                          background: 'var(--secondary-fixed)',
-                          borderRadius: 12,
-                          padding: '8px 14px',
-                          marginBottom: 16,
-                          fontFamily: "'Plus Jakarta Sans', sans-serif",
-                          fontSize: 12,
-                          fontWeight: 700,
-                          color: 'var(--secondary)',
-                        }}
-                      >
-                        Total you owe: ₹{Math.round(totalIOwe).toLocaleString('en-IN')}
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        {myPending.map((e, i) => <ExpenseRow key={i} expense={e} myId={myId} onDelete={() => handleDeleteExpense(e._id)} />)}
-                      </div>
-                    </>
-                  )}
-                </div>
-              )} */}
-
-              {/* Settled Tab */}
+              {/* Settlements Tab — shows only "Settlement: X to Y" payment records */}
               {activeTab === 'received' && (
                 <div className="tab-content">
-                  {settledExpenses.length === 0 ? (
-                    <EmptyState icon={<ReceiptPercentIcon style={{ width: 32, height: 32, color: "var(--on-surface-variant)" }} />} text="No settled expenses yet." />
+                  {settlementRecords.length === 0 ? (
+                    <EmptyState icon={<ReceiptPercentIcon style={{ width: 32, height: 32, color: "var(--on-surface-variant)" }} />} text="No settlements recorded yet." />
                   ) : (
                     <div className="transactions">
-                      {[...settledExpenses].reverse().map((e, i) => (
+                      {[...settlementRecords].reverse().map((e, i) => (
                         <ExpenseRow key={i} expense={e} myId={myId} isSettled />
                       ))}
                     </div>
@@ -406,14 +376,14 @@ const handleSettleDebt = async (settlement) => {
                 </div>
               )}
 
-              {/* All Expenses Tab */}
+              {/* Records Tab — shows only regular expenses, never settlement payment records */}
               {activeTab === 'all' && (
                 <div className="tab-content">
-                  {expenses.length === 0 ? (
+                  {regularExpenses.length === 0 ? (
                     <EmptyState icon={<InboxIcon style={{ width: 32, height: 32, color: "var(--on-surface-variant)" }} />} text="No expenses yet. Add one above." />
                   ) : (
                     <div className="transactions">
-                      {[...expenses].reverse().map((e, i) => (
+                      {[...regularExpenses].reverse().map((e, i) => (
                         <ExpenseRow
                           key={i}
                           expense={e}
@@ -657,7 +627,7 @@ const handleSettleDebt = async (settlement) => {
                     onClick={handleAddExpense}
                     disabled={submitting || isCustomUnbalanced}
                   >
-                    {submitting ? <Spinner /> : 'Add Expense +'}
+                   {submitting ? <Spinner /> : 'Add Expense +'}
                   </button>
                 </div>
               </div>

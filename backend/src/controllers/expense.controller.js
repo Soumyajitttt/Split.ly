@@ -39,10 +39,33 @@ const createExpense = asyncHandler(async (req, res) => {
 
     let involvedUserIds = [];
 
-    if (splitType === 'custom' && customSplits?.length) {
+    // BUG FIX: Settlement must have its own dedicated branch.
+    // The original code set expenseData.splitamong = [] and then fell into the
+    // equal-split else-branch which immediately overwrote splitamong with req.body.splitamong
+    // and ran irrelevant equal-split validation. Settlement also must never be validated
+    // the same way as a regular expense.
+    if (splitType === 'settlement') {
+        if (!splitamong?.length) {
+            return res.status(400).json({ message: "Settlement requires a recipient" });
+        }
+        // Validate that the recipient is a group member
+        const recipientId = splitamong[0].toString();
+        if (!group.members.some(m => (m._id || m).toString() === recipientId)) {
+            return res.status(400).json({ message: "Settlement recipient must be a group member" });
+        }
+        // Mark as settled immediately — a settlement expense is a completed payment record
+        expenseData.settled = true;
+        // Store the creditor in splitamong so settleBalances can identify the recipient
+        expenseData.splitamong = splitamong;
+        // Only the payer needs this in their expense history; the recipient sees it via the group
+        involvedUserIds = [payerId.toString()];
+
+    } else if (splitType === 'custom' && customSplits?.length) {
         const customTotal = customSplits.reduce((s, cs) => s + Number(cs.amount), 0);
         if (Math.abs(customTotal - Number(amount)) > 0.01) {
-            return res.status(400).json({ message: `Custom split amounts (₹${customTotal.toFixed(2)}) must add up to the total (₹${Number(amount).toFixed(2)})` });
+            return res.status(400).json({
+                message: `Custom split amounts (₹${customTotal.toFixed(2)}) must add up to the total (₹${Number(amount).toFixed(2)})`
+            });
         }
         const allValid = customSplits.every(cs =>
             group.members.some(m => (m._id || m).toString() === cs.user.toString())
@@ -52,6 +75,7 @@ const createExpense = asyncHandler(async (req, res) => {
         expenseData.customSplits = customSplits.map(cs => ({ user: cs.user, amount: Number(cs.amount) }));
         expenseData.splitamong = customSplits.map(cs => cs.user);
         involvedUserIds = customSplits.map(cs => cs.user.toString());
+
     } else {
         if (!splitamong?.length) {
             return res.status(400).json({ message: "Select who to split with" });
@@ -129,8 +153,8 @@ const deleteExpense = asyncHandler(async (req, res) => {
     await Expense.findByIdAndDelete(expenseId);
     await Group.findByIdAndUpdate(expense.group, { $pull: { expenses: expense._id } });
 
-    // FIX 4: collect users from both splitamong AND customSplits so every
-    // participant's expense reference is cleaned up, not just equal-split members
+    // Collect users from both splitamong AND customSplits so every participant's
+    // expense reference is cleaned up, not just equal-split members
     const splitAmongIds  = expense.splitamong.map(String);
     const customSplitIds = (expense.customSplits || []).map(cs =>
         (cs.user?._id || cs.user).toString()
@@ -148,26 +172,25 @@ const deleteExpense = asyncHandler(async (req, res) => {
 
 const settleExpense = asyncHandler(async (req, res) => {
     const { expenseId } = req.params;
-    // Accept a specific userId from the frontend, fallback to the logged-in user
-    const targetUserId = req.body.userId || req.user._id.toString();
+    const { userId } = req.body;
+
+    if (!expenseId || !userId) {
+        return res.status(400).json({ message: "Missing expenseId or userId" });
+    }
 
     const expense = await Expense.findById(expenseId);
     if (!expense) {
         return res.status(404).json({ message: "Expense not found" });
     }
 
-    // Safely update the array without duplicating the document
-    if (!expense.settledBy.includes(targetUserId)) {
-        expense.settledBy.push(targetUserId);
-        await expense.save(); // Updates the existing document
-    }
-
-    res.status(200).json({ 
-        success: true, 
-        message: "Debt cleared successfully",
-        expense 
+    await Expense.findByIdAndUpdate(expenseId, {
+        $addToSet: { settledBy: userId }
     });
+
+    const updated = await Expense.findById(expenseId);
+    res.json({ success: true, message: "Expense settled", expense: updated });
 });
+
 const getGroupSummary = asyncHandler(async (req, res) => {
     const { groupId } = req.params;
 
@@ -188,21 +211,29 @@ const getGroupSummary = asyncHandler(async (req, res) => {
         return res.status(403).json({ message: "Not authorized" });
     }
 
-    // FIX: Filter out settlement transactions so they don't count as real group expenses
+    // Total expense should only count real expenses, not settlement payment records
     const totalExpense = group.expenses
-    .filter(exp => exp.splitType !== 'settlement')
-    .reduce((sum, exp) => sum + exp.amount, 0);
+        .filter(exp => exp.splitType !== 'settlement')
+        .reduce((sum, exp) => sum + exp.amount, 0);
 
+    // BUG FIX: Pass ALL expenses (including settlement-type) to settleBalances.
+    // The original code filtered out settlement expenses before this call, meaning
+    // settlements never reduced the debts they were supposed to cancel.
+    // settleBalances now handles settlement-type expenses internally to reduce debts.
     const { settlements } = settleBalances(group.expenses, group.members);
 
     const enrichedSettlements = settlements.map(s => {
         const fromMember = group.members.find(m => m._id.toString() === s.from);
         const toMember   = group.members.find(m => m._id.toString() === s.to);
+
         return {
+            // BUG FIX: removed expenseId field — settleBalances returns computed net
+            // settlements, not references to specific expense documents, so expenseId
+            // was always undefined here.
             fromId: s.from,
             toId:   s.to,
-            from:   fromMember?.fullname || fromMember?.username || s.from,
-            to:     toMember?.fullname   || toMember?.username   || s.to,
+            from:   fromMember?.fullname || fromMember?.username,
+            to:     toMember?.fullname   || toMember?.username,
             amount: s.amount
         };
     });

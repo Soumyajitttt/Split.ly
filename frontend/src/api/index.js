@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE = '/api/v1.0.0';
+const BASE = 'http://localhost:5000/api/v1.0.0';
 
 const api = axios.create({ baseURL: BASE, withCredentials: true });
 
@@ -16,19 +16,28 @@ api.interceptors.response.use(
   res => res,
   async err => {
     const original = err.config;
+
     if (err.response?.status === 401 && !original._retry) {
       original._retry = true;
+
       try {
-        const { data } = await axios.post(`${BASE}/users/refresh-token`, {}, { withCredentials: true });
+        const { data } = await axios.post(
+          `${BASE}/users/refresh-token`,
+          {},
+          { withCredentials: true }
+        );
+
         localStorage.setItem('accessToken', data.data.accessToken);
         original.headers.Authorization = `Bearer ${data.data.accessToken}`;
         return api(original);
-      } catch {
+
+      } catch (refreshErr) {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('user');
         window.location.href = '/login';
       }
     }
+
     return Promise.reject(err);
   }
 );
@@ -54,5 +63,5 @@ export const getGroupSummary = (groupId) => api.get(`/expenses/${groupId}/summar
 export const deleteExpense = (expenseId) => api.delete(`/expenses/${expenseId}`);
 
 // FIX: Changed uppercase API to lowercase api
-export const settleExpense = (expenseId, fromId) => 
-  api.patch(`/expenses/${expenseId}/settle`, { debtorId: fromId });
+export const settleExpense = (expenseId, userId) => 
+  api.patch(`/expenses/${expenseId}/settle`, { userId });
