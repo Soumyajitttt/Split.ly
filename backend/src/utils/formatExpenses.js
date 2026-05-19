@@ -89,9 +89,8 @@ export const formatExpenses = (expenses, userId) => {
             status:       isPayer ? (othersOweYou < 0.01 ? 'SETTLED' : 'YOU PAID') : (isSettledForUser ? 'SETTLED' : 'PENDING'),
             youOwe:       isPayer || isSettledForUser ? 0 : share,
             othersOweYou: isPayer ? othersOweYou : 0,
-            settled:      exp.settled || isSettledForUser,
-            settledAt:    exp.settledAt || null,
-            createdAt:    exp.createdAt
-        };
+            settledBy:    exp.settledBy, // <-- ADD THIS EXACT LINE
+            settled:      exp.settled || isSettledForUser
+        }
     });
 };

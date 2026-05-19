@@ -53,6 +53,6 @@ export const getMyExpenses = () => api.get('/expenses/my-expenses');
 export const getGroupSummary = (groupId) => api.get(`/expenses/${groupId}/summary`);
 export const deleteExpense = (expenseId) => api.delete(`/expenses/${expenseId}`);
 
-// Inside your frontend api.js file:
-export const settleExpense = (expenseId, debtorId) => 
-  api.patch(`/expenses/${expenseId}/settle`, { debtorId });
+// FIX: Changed uppercase API to lowercase api
+export const settleExpense = (expenseId, fromId) => 
+  api.patch(`/expenses/${expenseId}/settle`, { debtorId: fromId });

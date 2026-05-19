@@ -107,13 +107,13 @@ export default function GroupDetail() {
 const handleSettleDebt = async (settlement) => {
   setSettlingId(settlement.fromId + settlement.toId);
   try {
-    // Call createExpense with 'equal' splitType instead of 'settlement'
+    // Call createExpense with 'settlement' splitType to correctly record the payment transfer
     await createExpense(groupId, {
       description: `Settlement: ${settlement.from} to ${settlement.to}`,
       amount: Number(settlement.amount),
       paidby: settlement.fromId,     // The debtor pays
       splitamong: [settlement.toId],  // Split ONLY with the creditor
-      splitType: 'equal'              // Changed from 'settlement' to 'equal'
+      splitType: 'settlement'         // Changed back to 'settlement'
     });
     showToast(`${settlement.from} → ${settlement.to} settled`);
     fetchAll();
@@ -320,12 +320,12 @@ const handleSettleDebt = async (settlement) => {
           <div style={{ display: 'flex', gap: 16 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               {/* Tab Bar */}
+              {/* Tab Bar */}
               <div className="tab-bar">
                 {[
                   ['balances', `Balances${settlements.length ? ` (${settlements.length})` : ''}`],
-                  ['unpaid',   `Pending${myPending.length ? ` (${myPending.length})` : ''}`],
-                  ['received', `Settled${settledExpenses.length ? ` (${settledExpenses.length})` : ''}`],
-                  ['all',      `All (${expenses.length})`],
+                  ['received', `Settlements${settledExpenses.length ? ` (${settledExpenses.length})` : ''}`],
+                  ['all',      `Records`],
                 ].map(([id, label]) => (
                   <button key={id} className={`tab ${activeTab === id ? 'active' : ''}`} onClick={() => setActiveTab(id)}>
                     {label}
@@ -360,7 +360,7 @@ const handleSettleDebt = async (settlement) => {
               )}
 
               {/* Pending Tab */}
-              {activeTab === 'unpaid' && (
+              {/* {activeTab === 'unpaid' && (
                 <div>
                   {myPending.length === 0 ? (
                     <EmptyState icon={<CheckCircleIcon style={{ width: 32, height: 32, color: "var(--secondary)" }} />} text="Nothing pending for you!" />
@@ -389,7 +389,7 @@ const handleSettleDebt = async (settlement) => {
                     </>
                   )}
                 </div>
-              )}
+              )} */}
 
               {/* Settled Tab */}
               {activeTab === 'received' && (

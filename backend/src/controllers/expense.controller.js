@@ -148,41 +148,26 @@ const deleteExpense = asyncHandler(async (req, res) => {
 
 const settleExpense = asyncHandler(async (req, res) => {
     const { expenseId } = req.params;
-    const debtorId = req.body.debtorId || req.user._id.toString();
+    // Accept a specific userId from the frontend, fallback to the logged-in user
+    const targetUserId = req.body.userId || req.user._id.toString();
 
     const expense = await Expense.findById(expenseId);
-    if (!expense) return res.status(404).json({ message: "Expense not found" });
-
-    const payerId = expense.paidby.toString();
-
-    if (!expense.settledBy.includes(debtorId)) {
-        expense.settledBy.push(debtorId);
+    if (!expense) {
+        return res.status(404).json({ message: "Expense not found" });
     }
 
-    // FIX 5: determine unsettled non-payer members from the correct source
-    // depending on splitType, so custom-split expenses can actually reach
-    // settled === true instead of being stuck open forever
-    let unsettledMembers;
-
-    if (expense.splitType === 'custom' && expense.customSplits?.length) {
-        unsettledMembers = expense.customSplits
-            .map(cs => (cs.user?._id || cs.user).toString())
-            .filter(uid => uid !== payerId && !expense.settledBy.map(String).includes(uid));
-    } else {
-        unsettledMembers = expense.splitamong
-            .map(id => id.toString())
-            .filter(uid => uid !== payerId && !expense.settledBy.map(String).includes(uid));
+    // Safely update the array without duplicating the document
+    if (!expense.settledBy.includes(targetUserId)) {
+        expense.settledBy.push(targetUserId);
+        await expense.save(); // Updates the existing document
     }
 
-    if (unsettledMembers.length === 0) {
-        expense.settled  = true;
-        expense.settledAt = new Date();
-    }
-
-    await expense.save();
-    res.status(200).json({ success: true, message: "Expense share marked as settled" });
+    res.status(200).json({ 
+        success: true, 
+        message: "Debt cleared successfully",
+        expense 
+    });
 });
-
 const getGroupSummary = asyncHandler(async (req, res) => {
     const { groupId } = req.params;
 
@@ -203,7 +188,11 @@ const getGroupSummary = asyncHandler(async (req, res) => {
         return res.status(403).json({ message: "Not authorized" });
     }
 
-    const totalExpense = group.expenses.reduce((sum, exp) => sum + exp.amount, 0);
+    // FIX: Filter out settlement transactions so they don't count as real group expenses
+    const totalExpense = group.expenses
+    .filter(exp => exp.splitType !== 'settlement')
+    .reduce((sum, exp) => sum + exp.amount, 0);
+
     const { settlements } = settleBalances(group.expenses, group.members);
 
     const enrichedSettlements = settlements.map(s => {

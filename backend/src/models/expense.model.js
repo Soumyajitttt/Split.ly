@@ -23,7 +23,7 @@ const expenseSchema = new Schema({
   // 'equal' = divide evenly, 'custom' = per-person amounts in customSplits
   splitType: {
     type: String,
-    enum: ['equal', 'custom'],
+    enum: ['equal', 'custom', 'settlement'],
     default: 'equal'
   },
   // For equal splits — list of user ids sharing the cost
