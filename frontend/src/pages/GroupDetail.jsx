@@ -102,23 +102,27 @@ export default function GroupDetail() {
     } finally { setSubmitting(false); }
   };
 
-  const handleSettleDebt = async (settlement) => {
-    const toSettle = expenses.filter(e => {
-      const isReceiverThePayer = e.payerId === settlement.toId;
-      const splitNames = e.splitWith || [];
-      const isSenderInvolved = splitNames.includes(settlement.from) || splitNames.includes('You');
-      return !e.settled && isReceiverThePayer && isSenderInvolved;
+  // FIX 6: match expenses using stable IDs (payerId, splitamong user IDs) rather
+  // than display-name strings, which break with duplicate names or "You" aliasing
+const handleSettleDebt = async (settlement) => {
+  setSettlingId(settlement.fromId + settlement.toId);
+  try {
+    // Call createExpense with 'equal' splitType instead of 'settlement'
+    await createExpense(groupId, {
+      description: `Settlement: ${settlement.from} to ${settlement.to}`,
+      amount: Number(settlement.amount),
+      paidby: settlement.fromId,     // The debtor pays
+      splitamong: [settlement.toId],  // Split ONLY with the creditor
+      splitType: 'equal'              // Changed from 'settlement' to 'equal'
     });
-    if (!toSettle.length) { showToast('Nothing to settle.'); return; }
-    setSettlingId(settlement.fromId + settlement.toId);
-    try {
-      await Promise.all(toSettle.map(e => settleExpense(e._id, settlement.fromId)));
-      showToast(`${settlement.from} → ${settlement.to} settled`);
-      fetchAll();
-    } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to settle');
-    } finally { setSettlingId(null); }
-  };
+    showToast(`${settlement.from} → ${settlement.to} settled`);
+    fetchAll();
+  } catch (err) {
+    showToast(err.response?.data?.message || 'Failed to settle');
+  } finally {
+    setSettlingId(null);
+  }
+};
 
   const handleDeleteExpense = async (expenseId) => {
     if (!window.confirm('Delete this expense?')) return;
@@ -229,7 +233,7 @@ export default function GroupDetail() {
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="main-content">
 
-          {/* Group Header Card — fixed alignment */}
+          {/* Group Header Card */}
           <div
             style={{
               background: 'var(--primary)',
@@ -240,11 +244,9 @@ export default function GroupDetail() {
               overflow: 'hidden',
             }}
           >
-            {/* Decorative blobs */}
             <div style={{ position: 'absolute', right: -40, top: -40, width: 140, height: 140, background: 'rgba(255,255,255,0.08)', borderRadius: '50%', filter: 'blur(30px)', pointerEvents: 'none' }} />
             <div style={{ position: 'absolute', right: 40, bottom: -60, width: 160, height: 160, background: 'rgba(253,108,0,0.15)', borderRadius: '50%', filter: 'blur(40px)', pointerEvents: 'none' }} />
 
-            {/* Fixed: use align-items: center for vertical alignment, flex-wrap for responsive */}
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
@@ -254,7 +256,6 @@ export default function GroupDetail() {
               position: 'relative',
               zIndex: 1,
             }}>
-              {/* Left: group name + members */}
               <div>
                 <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>
                   Group
@@ -267,7 +268,6 @@ export default function GroupDetail() {
                 </div>
               </div>
 
-              {/* Right: Total Expenses + Net Balance — fixed vertical alignment */}
               <div style={{ display: 'flex', gap: 32, alignItems: 'center', flexWrap: 'wrap' }}>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>
@@ -318,7 +318,6 @@ export default function GroupDetail() {
           )}
 
           <div style={{ display: 'flex', gap: 16 }}>
-            {/* Main content */}
             <div style={{ flex: 1, minWidth: 0 }}>
               {/* Tab Bar */}
               <div className="tab-bar">
@@ -394,73 +393,48 @@ export default function GroupDetail() {
 
               {/* Settled Tab */}
               {activeTab === 'received' && (
-  <div className="tab-content">
-    {settledExpenses.length === 0 ? (
-      <EmptyState icon={<ReceiptPercentIcon style={{ width: 32, height: 32, color: "var(--on-surface-variant)" }} />} text="No settled expenses yet." />
-    ) : (
-      <div className="transactions">
-        {[...settledExpenses]
-          .reverse()
-          .map((e, i) => (
-            <ExpenseRow
-              key={i}
-              expense={e}
-              myId={myId}
-              isSettled
-            />
-          ))}
-      </div>
-    )}
-  </div>
-)}
+                <div className="tab-content">
+                  {settledExpenses.length === 0 ? (
+                    <EmptyState icon={<ReceiptPercentIcon style={{ width: 32, height: 32, color: "var(--on-surface-variant)" }} />} text="No settled expenses yet." />
+                  ) : (
+                    <div className="transactions">
+                      {[...settledExpenses].reverse().map((e, i) => (
+                        <ExpenseRow key={i} expense={e} myId={myId} isSettled />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* All Expenses Tab */}
               {activeTab === 'all' && (
-  <div className="tab-content">
-    {expenses.length === 0 ? (
-      <EmptyState icon={<InboxIcon style={{ width: 32, height: 32, color: "var(--on-surface-variant)" }} />} text="No expenses yet. Add one above." />
-    ) : (
-      <div className="transactions">
-        {[...expenses]
-          .reverse()
-          .map((e, i) => (
-            <ExpenseRow
-              key={i}
-              expense={e}
-              myId={myId}
-              onDelete={!e.settled ? () => handleDeleteExpense(e._id) : undefined}
-              isSettled={e.settled}
-            />
-          ))}
-      </div>
-    )}
-  </div>
-)}
+                <div className="tab-content">
+                  {expenses.length === 0 ? (
+                    <EmptyState icon={<InboxIcon style={{ width: 32, height: 32, color: "var(--on-surface-variant)" }} />} text="No expenses yet. Add one above." />
+                  ) : (
+                    <div className="transactions">
+                      {[...expenses].reverse().map((e, i) => (
+                        <ExpenseRow
+                          key={i}
+                          expense={e}
+                          myId={myId}
+                          onDelete={!e.settled ? () => handleDeleteExpense(e._id) : undefined}
+                          isSettled={e.settled}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Members sidebar */}
             <div
-              style={{
-                width: 220,
-                flexShrink: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 8,
-              }}
+              style={{ width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}
               className="detail-members-sidebar"
             >
               <div className="chart-card" style={{ padding: 20 }}>
-                <div
-                  style={{
-                    fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    letterSpacing: '0.1em',
-                    textTransform: 'uppercase',
-                    color: 'var(--on-surface-variant)',
-                    marginBottom: 12,
-                  }}
-                >
+                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: 12 }}>
                   Members ({group?.members?.length})
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -514,17 +488,12 @@ export default function GroupDetail() {
                   type="button"
                   onClick={() => setExpForm(f => ({ ...f, paidby: m._id }))}
                   style={{
-                    padding: '8px 14px',
-                    borderRadius: 12,
-                    border: '1.5px solid',
+                    padding: '8px 14px', borderRadius: 12, border: '1.5px solid',
                     borderColor: expForm.paidby === m._id ? 'var(--primary)' : 'var(--outline-variant)',
                     background: expForm.paidby === m._id ? 'var(--primary-fixed)' : 'var(--surface-container-low)',
                     color: expForm.paidby === m._id ? 'var(--primary)' : 'var(--on-surface-variant)',
-                    fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    fontWeight: 700,
-                    fontSize: 13,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
+                    fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 13,
+                    cursor: 'pointer', transition: 'all 0.15s',
                   }}
                 >
                   {m.fullname || m.username}
@@ -536,7 +505,6 @@ export default function GroupDetail() {
             <label className="form-label">
               Split With <span style={{ fontSize: 10, letterSpacing: 0, fontWeight: 500, textTransform: 'none' }}>(select everyone sharing this cost)</span>
             </label>
-            {/* Split type toggle */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 10, marginTop: 4 }}>
               {['equal', 'custom'].map(mode => (
                 <button
@@ -544,18 +512,12 @@ export default function GroupDetail() {
                   type="button"
                   onClick={() => setExpForm(f => ({ ...f, splitType: mode, customSplits: {} }))}
                   style={{
-                    padding: '5px 14px',
-                    borderRadius: 20,
-                    border: '1.5px solid',
+                    padding: '5px 14px', borderRadius: 20, border: '1.5px solid',
                     borderColor: expForm.splitType === mode ? 'var(--primary)' : 'var(--outline-variant)',
                     background: expForm.splitType === mode ? 'var(--primary-fixed)' : 'transparent',
                     color: expForm.splitType === mode ? 'var(--primary)' : 'var(--on-surface-variant)',
-                    fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    fontWeight: 700,
-                    fontSize: 12,
-                    cursor: 'pointer',
-                    textTransform: 'capitalize',
-                    transition: 'all 0.15s',
+                    fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12,
+                    cursor: 'pointer', textTransform: 'capitalize', transition: 'all 0.15s',
                   }}
                 >
                   {mode === 'equal' ? 'Equal' : 'Custom'}
@@ -569,17 +531,12 @@ export default function GroupDetail() {
                   type="button"
                   onClick={() => toggleSplit(m._id)}
                   style={{
-                    padding: '8px 14px',
-                    borderRadius: 12,
-                    border: '1.5px solid',
+                    padding: '8px 14px', borderRadius: 12, border: '1.5px solid',
                     borderColor: expForm.splitamong.includes(m._id) ? 'var(--secondary-container)' : 'var(--outline-variant)',
                     background: expForm.splitamong.includes(m._id) ? 'var(--secondary-fixed)' : 'var(--surface-container-low)',
                     color: expForm.splitamong.includes(m._id) ? 'var(--secondary)' : 'var(--on-surface-variant)',
-                    fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    fontWeight: 700,
-                    fontSize: 13,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
+                    fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 13,
+                    cursor: 'pointer', transition: 'all 0.15s',
                   }}
                 >
                   {m.fullname || m.username}
@@ -598,11 +555,8 @@ export default function GroupDetail() {
               <div style={{
                 background: 'var(--surface-container-low)',
                 border: `1.5px solid ${isBalanced ? 'var(--secondary-container)' : 'var(--outline-variant)'}`,
-                borderRadius: 14,
-                padding: '14px 16px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 10,
+                borderRadius: 14, padding: '14px 16px',
+                display: 'flex', flexDirection: 'column', gap: 10,
               }}>
                 <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: 'var(--on-surface-variant)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                   Assign amounts
@@ -613,11 +567,9 @@ export default function GroupDetail() {
                     <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{
                         width: 30, height: 30, borderRadius: '50%',
-                        background: 'var(--secondary-fixed)',
-                        color: 'var(--secondary)',
+                        background: 'var(--secondary-fixed)', color: 'var(--secondary)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontFamily: "'Plus Jakarta Sans', sans-serif",
-                        fontWeight: 800, fontSize: 12, flexShrink: 0
+                        fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 800, fontSize: 12, flexShrink: 0
                       }}>
                         {(member?.fullname || member?.username || '?')[0].toUpperCase()}
                       </div>
@@ -646,10 +598,13 @@ export default function GroupDetail() {
                     </div>
                   );
                 })}
-                {/* Running total */}
                 <div style={{ borderTop: '1px solid var(--outline-variant)', paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: 'var(--on-surface-variant)' }}>
-                    {isBalanced ? <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircleIcon style={{ width: 14, height: 14, color: 'var(--secondary)' }} /> Balanced!</span> : remaining > 0 ? `₹${remaining.toFixed(2)} left to assign` : `₹${Math.abs(remaining).toFixed(2)} over budget`}
+                    {isBalanced
+                      ? <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircleIcon style={{ width: 14, height: 14, color: 'var(--secondary)' }} /> Balanced!</span>
+                      : remaining > 0
+                        ? `₹${remaining.toFixed(2)} left to assign`
+                        : `₹${Math.abs(remaining).toFixed(2)} over budget`}
                   </span>
                   <span style={{ fontFamily: "'Be Vietnam Pro', sans-serif", fontSize: 15, fontWeight: 800, color: isBalanced ? 'var(--secondary)' : 'var(--error)' }}>
                     ₹{customTotal.toFixed(2)} / ₹{Number(expForm.amount || 0).toFixed(2)}
@@ -661,18 +616,11 @@ export default function GroupDetail() {
 
           {/* Equal split preview */}
           {expForm.splitType === 'equal' && sharePreview && (
-            <div
-              style={{
-                background: 'var(--surface-container-low)',
-                border: '1px solid var(--outline-variant)',
-                borderRadius: 14,
-                padding: '14px 16px',
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: 16,
-                alignItems: 'center',
-              }}
-            >
+            <div style={{
+              background: 'var(--surface-container-low)', border: '1px solid var(--outline-variant)',
+              borderRadius: 14, padding: '14px 16px',
+              display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center',
+            }}>
               <div>
                 <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: 'var(--on-surface-variant)', fontWeight: 600 }}>Each person's share: </span>
                 <span style={{ fontFamily: "'Be Vietnam Pro', sans-serif", fontSize: 20, fontWeight: 800, color: 'var(--on-surface)', letterSpacing: '-0.02em' }}>₹{sharePreview}</span>
@@ -694,13 +642,9 @@ export default function GroupDetail() {
                   <div style={{
                     background: 'color-mix(in srgb, var(--error) 10%, transparent)',
                     border: '1px solid color-mix(in srgb, var(--error) 30%, transparent)',
-                    borderRadius: 10,
-                    padding: '8px 12px',
-                    fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: 'var(--error)',
-                    textAlign: 'center',
+                    borderRadius: 10, padding: '8px 12px',
+                    fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600,
+                    color: 'var(--error)', textAlign: 'center',
                   }}>
                     ⚠️ Assign the full ₹{Number(expForm.amount || 0).toFixed(2)} before adding
                   </div>
@@ -727,15 +671,7 @@ export default function GroupDetail() {
         <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: 'var(--on-surface-variant)', marginBottom: 20, fontWeight: 500 }}>
           Share this code to invite members:
         </p>
-        <div
-          style={{
-            background: 'var(--primary)',
-            borderRadius: 20,
-            padding: '28px 24px',
-            textAlign: 'center',
-            marginBottom: 16,
-          }}
-        >
+        <div style={{ background: 'var(--primary)', borderRadius: 20, padding: '28px 24px', textAlign: 'center', marginBottom: 16 }}>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.65)', marginBottom: 8 }}>
             Invite Code
           </div>
@@ -766,15 +702,7 @@ export default function GroupDetail() {
 
 function BalancePill({ color, bg, label, value }) {
   return (
-    <div
-      style={{
-        flex: 1,
-        minWidth: 130,
-        background: bg,
-        borderRadius: 16,
-        padding: '14px 18px',
-      }}
-    >
+    <div style={{ flex: 1, minWidth: 130, background: bg, borderRadius: 16, padding: '14px 18px' }}>
       <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color, opacity: 0.75, marginBottom: 4 }}>
         {label}
       </div>
@@ -792,41 +720,19 @@ function SettlementRow({ s, myId, isLoading, onSettle }) {
     <div
       className="settlement-row"
       style={{
-        background: iAmPayer
-          ? 'rgba(253,108,0,0.05)'
-          : iAmPayee
-          ? 'rgba(21,128,61,0.05)'
-          : 'var(--surface-container-low)',
+        background: iAmPayer ? 'rgba(253,108,0,0.05)' : iAmPayee ? 'rgba(21,128,61,0.05)' : 'var(--surface-container-low)',
         border: '1.5px solid',
-        borderColor: iAmPayer
-          ? 'rgba(253,108,0,0.2)'
-          : iAmPayee
-          ? 'rgba(21,128,61,0.2)'
-          : 'var(--surface-container-high)',
+        borderColor: iAmPayer ? 'rgba(253,108,0,0.2)' : iAmPayee ? 'rgba(21,128,61,0.2)' : 'var(--surface-container-high)',
         borderRadius: 16,
       }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span
-            style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
-              fontWeight: 700,
-              fontSize: 14,
-              color: iAmPayer ? 'var(--secondary-container)' : 'var(--on-surface)',
-            }}
-          >
+          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: iAmPayer ? 'var(--secondary-container)' : 'var(--on-surface)' }}>
             {s.from}{iAmPayer ? ' (you)' : ''}
           </span>
           <ArrowRightIcon style={{ width: 14, height: 14, color: 'var(--outline)', flexShrink: 0 }} />
-          <span
-            style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
-              fontWeight: 700,
-              fontSize: 14,
-              color: iAmPayee ? '#15803d' : 'var(--on-surface)',
-            }}
-          >
+          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: iAmPayee ? '#15803d' : 'var(--on-surface)' }}>
             {s.to}{iAmPayee ? ' (you)' : ''}
           </span>
         </div>
@@ -840,38 +746,20 @@ function SettlementRow({ s, myId, isLoading, onSettle }) {
             onClick={onSettle}
             disabled={isLoading}
             style={{
-              padding: '7px 16px',
-              borderRadius: 12,
-              border: '1.5px solid var(--primary)',
-              background: 'var(--primary-fixed)',
-              color: 'var(--primary)',
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
-              fontWeight: 700,
-              fontSize: 12,
-              cursor: 'pointer',
-              transition: 'all 0.15s',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
+              padding: '7px 16px', borderRadius: 12, border: '1.5px solid var(--primary)',
+              background: 'var(--primary-fixed)', color: 'var(--primary)',
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12,
+              cursor: 'pointer', transition: 'all 0.15s',
+              display: 'flex', alignItems: 'center', gap: 6,
             }}
           >
-            {isLoading ? <Spinner /> : (
-              <>
-                <CheckIcon style={{ width: 14, height: 14 }} />
-                Settle
-              </>
-            )}
+            {isLoading ? <Spinner /> : (<><CheckIcon style={{ width: 14, height: 14 }} />Settle</>)}
           </button>
         )}
-        <div
-          style={{
-            fontFamily: "'Be Vietnam Pro', sans-serif",
-            fontSize: 20,
-            fontWeight: 800,
-            letterSpacing: '-0.02em',
-            color: iAmPayer ? 'var(--secondary-container)' : iAmPayee ? '#15803d' : 'var(--on-surface)',
-          }}
-        >
+        <div style={{
+          fontFamily: "'Be Vietnam Pro', sans-serif", fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em',
+          color: iAmPayer ? 'var(--secondary-container)' : iAmPayee ? '#15803d' : 'var(--on-surface)',
+        }}>
           ₹{Math.round(s.amount).toLocaleString('en-IN')}
         </div>
       </div>
@@ -884,20 +772,12 @@ function ExpenseRow({ expense, onDelete, isSettled, myId }) {
   const canDelete = onDelete && expense.payerId === myId && !isSettled;
 
   return (
-    <div
-      className="expense-row"
-      style={{
-        opacity: isSettled ? 0.6 : 1,
-        background: 'transparent',
-      }}
-    >
+    <div className="expense-row" style={{ opacity: isSettled ? 0.6 : 1, background: 'transparent' }}>
       <div
         className="expense-icon"
         style={{
           background: isPayer ? 'var(--primary-fixed)' : isSettled ? 'var(--surface-container-high)' : 'var(--secondary-fixed)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}
       >
         {isPayer ? '💸' : isSettled ? <CheckIcon style={{ width: 16, height: 16, color: 'var(--on-surface-variant)' }} /> : '📋'}
@@ -921,18 +801,10 @@ function ExpenseRow({ expense, onDelete, isSettled, myId }) {
           <button
             onClick={onDelete}
             style={{
-              padding: '4px 10px',
-              borderRadius: 8,
-              border: '1px solid var(--error-container)',
-              background: 'var(--error-container)',
-              color: 'var(--on-error-container)',
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
-              fontWeight: 700,
-              fontSize: 10,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
+              padding: '4px 10px', borderRadius: 8, border: '1px solid var(--error-container)',
+              background: 'var(--error-container)', color: 'var(--on-error-container)',
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 10,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
             }}
           >
             <TrashIcon style={{ width: 12, height: 12 }} />

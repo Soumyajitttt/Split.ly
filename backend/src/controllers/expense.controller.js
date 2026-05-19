@@ -40,7 +40,6 @@ const createExpense = asyncHandler(async (req, res) => {
     let involvedUserIds = [];
 
     if (splitType === 'custom' && customSplits?.length) {
-        // Validate custom splits
         const customTotal = customSplits.reduce((s, cs) => s + Number(cs.amount), 0);
         if (Math.abs(customTotal - Number(amount)) > 0.01) {
             return res.status(400).json({ message: `Custom split amounts (₹${customTotal.toFixed(2)}) must add up to the total (₹${Number(amount).toFixed(2)})` });
@@ -51,11 +50,9 @@ const createExpense = asyncHandler(async (req, res) => {
         if (!allValid) return res.status(400).json({ message: "All split members must belong to the group" });
 
         expenseData.customSplits = customSplits.map(cs => ({ user: cs.user, amount: Number(cs.amount) }));
-        // Also populate splitamong for backward compat
         expenseData.splitamong = customSplits.map(cs => cs.user);
         involvedUserIds = customSplits.map(cs => cs.user.toString());
     } else {
-        // Equal split
         if (!splitamong?.length) {
             return res.status(400).json({ message: "Select who to split with" });
         }
@@ -132,7 +129,18 @@ const deleteExpense = asyncHandler(async (req, res) => {
     await Expense.findByIdAndDelete(expenseId);
     await Group.findByIdAndUpdate(expense.group, { $pull: { expenses: expense._id } });
 
-    const allUsers = [...new Set([...expense.splitamong.map(String), expense.paidby.toString()])];
+    // FIX 4: collect users from both splitamong AND customSplits so every
+    // participant's expense reference is cleaned up, not just equal-split members
+    const splitAmongIds  = expense.splitamong.map(String);
+    const customSplitIds = (expense.customSplits || []).map(cs =>
+        (cs.user?._id || cs.user).toString()
+    );
+    const allUsers = [...new Set([
+        ...splitAmongIds,
+        ...customSplitIds,
+        expense.paidby.toString()
+    ])];
+
     await User.updateMany({ _id: { $in: allUsers } }, { $pull: { expenses: expense._id } });
 
     res.status(200).json({ success: true, message: "Expense deleted successfully" });
@@ -151,12 +159,23 @@ const settleExpense = asyncHandler(async (req, res) => {
         expense.settledBy.push(debtorId);
     }
 
-    const unsettledMembers = expense.splitamong.filter(id =>
-        id.toString() !== payerId && !expense.settledBy.includes(id.toString())
-    );
+    // FIX 5: determine unsettled non-payer members from the correct source
+    // depending on splitType, so custom-split expenses can actually reach
+    // settled === true instead of being stuck open forever
+    let unsettledMembers;
+
+    if (expense.splitType === 'custom' && expense.customSplits?.length) {
+        unsettledMembers = expense.customSplits
+            .map(cs => (cs.user?._id || cs.user).toString())
+            .filter(uid => uid !== payerId && !expense.settledBy.map(String).includes(uid));
+    } else {
+        unsettledMembers = expense.splitamong
+            .map(id => id.toString())
+            .filter(uid => uid !== payerId && !expense.settledBy.map(String).includes(uid));
+    }
 
     if (unsettledMembers.length === 0) {
-        expense.settled = true;
+        expense.settled  = true;
         expense.settledAt = new Date();
     }
 

@@ -53,5 +53,6 @@ export const getMyExpenses = () => api.get('/expenses/my-expenses');
 export const getGroupSummary = (groupId) => api.get(`/expenses/${groupId}/summary`);
 export const deleteExpense = (expenseId) => api.delete(`/expenses/${expenseId}`);
 
-// UPDATED: Now accepts debtorId and sends it in the request body
-export const settleExpense = (expenseId, debtorId) => api.patch(`/expenses/${expenseId}/settle`, { debtorId });
+// Inside your frontend api.js file:
+export const settleExpense = (expenseId, debtorId) => 
+  api.patch(`/expenses/${expenseId}/settle`, { debtorId });
