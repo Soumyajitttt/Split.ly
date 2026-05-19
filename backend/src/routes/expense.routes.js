@@ -1,14 +1,23 @@
-import { Router } from "express";
-import { createExpense, getExpensesForGroup, getExpensesForUser, getGroupSummary, deleteExpense, getOverallSummary } from "../controllers/expense.controller.js";
-import authenticateUser from "../middlewares/auth.middleware.js";
+import { Router } from 'express';
+import {
+    createExpense,
+    getExpensesForGroup,
+    getExpensesForUser,
+    deleteExpense,
+    settleExpense,
+    getGroupSummary
+} from '../controllers/expense.controller.js';
+import authenticateUser from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
-router.post("/:groupId/create-expense", authenticateUser, createExpense);
-router.get("/:groupId/expenses", authenticateUser, getExpensesForGroup);
-router.get("/my-expenses", authenticateUser, getExpensesForUser);
-router.get("/:groupId/summary", authenticateUser, getGroupSummary);
-router.delete("/:expenseId", authenticateUser, deleteExpense);
-router.get("/summary", authenticateUser, getOverallSummary);
+router.use(authenticateUser);
+
+router.post('/:groupId/create-expense', createExpense);
+router.get('/:groupId/expenses', getExpensesForGroup);
+router.get('/my-expenses', getExpensesForUser);
+router.get('/:groupId/summary', getGroupSummary);
+router.delete('/:expenseId', deleteExpense);
+router.patch('/:expenseId/settle', settleExpense);   // NEW
 
 export default router;

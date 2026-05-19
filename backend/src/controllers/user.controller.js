@@ -127,10 +127,6 @@ const logoutUser = asyncHandler(async (req, res) => {
         });
 });
 
-const getCurrentUser = async (req, res) => {
-  return res.json({ user: req.user });
-};
-
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
     const incomingRefreshToken =
@@ -198,4 +194,4 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 });
 
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken, getCurrentUser };
+export { registerUser, loginUser, logoutUser, refreshAccessToken };

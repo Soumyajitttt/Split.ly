@@ -1,21 +1,5 @@
-// const generateUniqueGroupCode = async () => {
-//     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-//     let groupCode;
-//     let isUnique = false;
-//     while (!isUnique) {
-//         groupCode = '';
-//         for (let i = 0; i < 6; i++) {
-//             groupCode += characters.charAt(Math.floor(Math.random() * characters.length));
-//         }
-//         const existingGroup = await Group.findOne({ groupcode: groupCode });
-//         if (!existingGroup) {
-//             isUnique = true;
-//         }
-//     }
-//     return groupCode;
-// };
+import { Group } from '../models/group.model.js';
 
-// Improved version with limited attempts to prevent infinite loop 
 export const generateUniqueGroupCode = async () => {
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let attempts = 0;
@@ -36,5 +20,5 @@ export const generateUniqueGroupCode = async () => {
         attempts++;
     }
 
-    throw new Error("Failed to generate unique group code");
+    throw new Error('Failed to generate unique group code');
 };

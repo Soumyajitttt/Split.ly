@@ -57,7 +57,7 @@ const joinGroup = asyncHandler(async (req, res) => {
     
     // Check if already a member
     const isMember = group.members.some(
-        member => member.toString() === req.user._id.toString()
+        member => (member._id || member).toString() === req.user._id.toString()
     );
 
     if (isMember) {
@@ -138,7 +138,7 @@ const leaveGroup = asyncHandler(async (req, res) => {
 
     // Remove user from group members
     group.members = group.members.filter(
-        member => member.toString() !== req.user._id.toString()
+        member => (member._id || member).toString() !== req.user._id.toString()
     );
 
     // Check if user was actually a member and removed from the group
