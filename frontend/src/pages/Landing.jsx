@@ -925,8 +925,8 @@ export default function Landing() {
               <span className="hero-eyebrow-dot" />
               Expense splitting, reimagined
             </div>
-            <h1 className="hero-h1">
-              Split Smart,<br />
+            <h1 className="hero-h1" style={{ lineHeight: '1.00' }}>
+               Split Smart,<br />
               <em>Live Easy.</em>
             </h1>
             <p className="hero-sub">
@@ -1181,7 +1181,7 @@ export default function Landing() {
           <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--primary)', marginBottom: 12 }}>
             What people say
           </p>
-          <h2 className="testimonials-heading">Real People.<br />Real Relief.</h2>
+          <h2 className="testimonials-heading" style={{ lineHeight: '1.10' }}>Real People.<br />Real Relief.</h2>
         </div>
         <div className="marquee-wrapper">
           <div className="marquee-track">
@@ -1209,7 +1209,7 @@ export default function Landing() {
         />
         <div className="final-cta-inner">
           <p className="final-cta-eyebrow">Get started for free</p>
-          <h2>Ready to<br /><em>split smart?</em></h2>
+          <h2 >Ready to<br /><em>split smart?</em></h2>
           <p>Join 2M+ friends living life without the money stress.</p>
           <div className="final-cta-actions">
             {user ? (
