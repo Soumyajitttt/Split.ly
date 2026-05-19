@@ -15,9 +15,12 @@ import {
   PlusIcon,
   TrashIcon,
   CheckIcon,
+  CheckCircleIcon,
   ArrowRightIcon,
   ClipboardDocumentIcon,
-  ArrowLeftIcon
+  ArrowLeftIcon,
+  InboxIcon,
+  ReceiptPercentIcon,
 } from '@heroicons/react/24/outline';
 
 export default function GroupDetail() {
@@ -110,7 +113,7 @@ export default function GroupDetail() {
     setSettlingId(settlement.fromId + settlement.toId);
     try {
       await Promise.all(toSettle.map(e => settleExpense(e._id, settlement.fromId)));
-      showToast(`${settlement.from} → ${settlement.to} settled ✓`);
+      showToast(`${settlement.from} → ${settlement.to} settled`);
       fetchAll();
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to settle');
@@ -283,7 +286,7 @@ export default function GroupDetail() {
                     ₹{Math.abs(Math.round(myNetBalance)).toLocaleString('en-IN')}
                   </div>
                   <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2, fontWeight: 600 }}>
-                    {myNetBalance > 0.01 ? 'owed to you' : myNetBalance < -0.01 ? 'you owe' : 'all settled ✓'}
+                    {myNetBalance > 0.01 ? 'owed to you' : myNetBalance < -0.01 ? 'you owe' : 'all settled'}
                   </div>
                 </div>
               </div>
@@ -335,7 +338,7 @@ export default function GroupDetail() {
               {activeTab === 'balances' && (
                 <div>
                   {settlements.length === 0 ? (
-                    <EmptyState icon="✓" text="All settled up — no one owes anything!" />
+                    <EmptyState icon={<CheckCircleIcon style={{ width: 32, height: 32, color: "var(--secondary)" }} />} text="All settled up — no one owes anything!" />
                   ) : (
                     <>
                       <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: 'var(--on-surface-variant)', marginBottom: 16, fontWeight: 600 }}>
@@ -361,7 +364,7 @@ export default function GroupDetail() {
               {activeTab === 'unpaid' && (
                 <div>
                   {myPending.length === 0 ? (
-                    <EmptyState icon="✓" text="Nothing pending for you!" />
+                    <EmptyState icon={<CheckCircleIcon style={{ width: 32, height: 32, color: "var(--secondary)" }} />} text="Nothing pending for you!" />
                   ) : (
                     <>
                       <div
@@ -393,7 +396,7 @@ export default function GroupDetail() {
               {activeTab === 'received' && (
   <div className="tab-content">
     {settledExpenses.length === 0 ? (
-      <EmptyState icon="∅" text="No settled expenses yet." />
+      <EmptyState icon={<ReceiptPercentIcon style={{ width: 32, height: 32, color: "var(--on-surface-variant)" }} />} text="No settled expenses yet." />
     ) : (
       <div className="transactions">
         {[...settledExpenses]
@@ -415,7 +418,7 @@ export default function GroupDetail() {
               {activeTab === 'all' && (
   <div className="tab-content">
     {expenses.length === 0 ? (
-      <EmptyState icon="∅" text="No expenses yet. Add one above." />
+      <EmptyState icon={<InboxIcon style={{ width: 32, height: 32, color: "var(--on-surface-variant)" }} />} text="No expenses yet. Add one above." />
     ) : (
       <div className="transactions">
         {[...expenses]
@@ -646,7 +649,7 @@ export default function GroupDetail() {
                 {/* Running total */}
                 <div style={{ borderTop: '1px solid var(--outline-variant)', paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: 'var(--on-surface-variant)' }}>
-                    {isBalanced ? 'Balanced!' : remaining > 0 ? `₹${remaining.toFixed(2)} left to assign` : `₹${Math.abs(remaining).toFixed(2)} over budget`}
+                    {isBalanced ? <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircleIcon style={{ width: 14, height: 14, color: 'var(--secondary)' }} /> Balanced!</span> : remaining > 0 ? `₹${remaining.toFixed(2)} left to assign` : `₹${Math.abs(remaining).toFixed(2)} over budget`}
                   </span>
                   <span style={{ fontFamily: "'Be Vietnam Pro', sans-serif", fontSize: 15, fontWeight: 800, color: isBalanced ? 'var(--secondary)' : 'var(--error)' }}>
                     ₹{customTotal.toFixed(2)} / ₹{Number(expForm.amount || 0).toFixed(2)}

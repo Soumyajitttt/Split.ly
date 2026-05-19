@@ -33,7 +33,7 @@ const TESTIMONIALS = [
   { text: "Finally no more awkward 'hey did you pay me back' messages in the hostel group chat.", name: "Ravi K.", location: "Kolkata" },
   { text: "We use it for every trip. Splitting 12-person expenses used to be a nightmare. Not anymore.", name: "Anisha M.", location: "Bangalore" },
   { text: "Settled a 3-month hostel bill in like 2 minutes. This thing actually works.", name: "Sourav D.", location: "Delhi" },
-  { text: "Our friend group has 8 people and Split.ly keeps everyone honest. No drama, ever.", name: "Priya R.", location: "Mumbai" },
+  { text: "Our friend group has 8 people and SplitX keeps everyone honest. No drama, ever.", name: "Priya R.", location: "Mumbai" },
   { text: "The algorithm is insane — told me I only need 2 payments instead of 7. Genius.", name: "Arnav S.", location: "Pune" },
   { text: "Tried 4 other apps. This is the only one that doesn't make me feel like I need a degree.", name: "Meera T.", location: "Chennai" },
   { text: "Used it for our Manali trip. Zero arguments about money for the first time ever.", name: "Kabir P.", location: "Hyderabad" },
@@ -90,7 +90,7 @@ const FEATURES = [
     bg: '#fff',
     textColor: 'var(--on-surface, #1b1c1c)',
     title: 'Zero Learning Curve',
-    desc: "If you can read a WhatsApp message, you can use Split.ly. No tutorials. No onboarding. Just add and split.",
+    desc: "If you can read a WhatsApp message, you can use SplitX. No tutorials. No onboarding. Just add and split.",
     icon: (
       <div style={{
         width: 80, height: 80,
@@ -127,13 +127,16 @@ export default function Landing() {
   const allTestimonials = [...TESTIMONIALS, ...TESTIMONIALS];
   const allMarquee = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS];
 
+  const initials = user?.fullname?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || 'U';
+
   const navActions = user ? (
     <>
-      <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: 'var(--on-surface-variant)', fontWeight: 600 }}>
-        {user.username || user.fullname}
+      <button className="btn btn-ghost btn-sm"  onClick={() => navigate('/groups')}>GROUPS</button>
+      <button className="btn btn-ghost btn-sm"  onClick={() => navigate('/dashboard')}>DASHBOARD</button>
+      {/* <button className="btn btn-primary btn-sm" onClick={handleLogout}>Log Out</button> */}
+      <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: 'white', fontWeight: 600 }} className="sidebar-avatar">
+        {initials}
       </span>
-      <button className="btn btn-ghost btn-sm" onClick={() => navigate('/dashboard')}>Dashboard</button>
-      <button className="btn btn-primary btn-sm" onClick={handleLogout}>Log Out</button>
     </>
   ) : (
     <>
@@ -141,7 +144,7 @@ export default function Landing() {
   className="btn btn-ghost btn-sm" 
   onClick={() => navigate('/login')}
 >
-  Log In
+  LOG IN
 </button>
 
 <button
@@ -150,7 +153,7 @@ export default function Landing() {
   onClick={() => navigate('/')}
 >
   <ArrowRightIcon style={{ width: 15, height: 15, color: '#ffffff' }} />
-  Get Started
+  GET STARTED
 </button>
     </>
   );
@@ -926,11 +929,11 @@ export default function Landing() {
               Expense splitting, reimagined
             </div>
             <h1 className="hero-h1" style={{ lineHeight: '1.00' }}>
-               Split Smart,<br />
+              Split Smart,<br />
               <em>Live Easy.</em>
             </h1>
             <p className="hero-sub">
-              Stop the awkward "who owes what" talks. Split.ly turns group finances into a playful, stress-free experience.
+              Stop the awkward "who owes what" talks. SplitX turns group finances into a playful, stress-free experience.
             </p>
             <div className="hero-cta-row">
               {user ? (
@@ -1029,7 +1032,7 @@ export default function Landing() {
             <div className="step-minimal step-2">
               <div className="step-minimal-number">02</div>
               <h3 className="step-minimal-title">Log</h3>
-              <p className="step-minimal-desc">Add expenses instantly. Note who paid and who it's split with — Split.ly handles the arithmetic.</p>
+              <p className="step-minimal-desc">Add expenses instantly. Note who paid and who it's split with — SplitX handles the arithmetic.</p>
             </div>
 
             {/* Step 3 */}
@@ -1181,7 +1184,7 @@ export default function Landing() {
           <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--primary)', marginBottom: 12 }}>
             What people say
           </p>
-          <h2 className="testimonials-heading" style={{ lineHeight: '1.10' }}>Real People.<br />Real Relief.</h2>
+          <h2 className="testimonials-heading" style={{ lineHeight: '1.05' }}>Real People.<br />Real Relief.</h2>
         </div>
         <div className="marquee-wrapper">
           <div className="marquee-track">
@@ -1209,7 +1212,7 @@ export default function Landing() {
         />
         <div className="final-cta-inner">
           <p className="final-cta-eyebrow">Get started for free</p>
-          <h2 >Ready to<br /><em>split smart?</em></h2>
+          <h2>Ready to<br /><em>split smart?</em></h2>
           <p>Join 2M+ friends living life without the money stress.</p>
           <div className="final-cta-actions">
             {user ? (

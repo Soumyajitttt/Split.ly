@@ -62,7 +62,7 @@ export function Divider() {
   return <hr className="divider" />;
 }
 
-export function EmptyState({ icon = '∅', text }) {
+export function EmptyState({ icon, text }) {
   return (
     <div className="empty-state">
       <div
@@ -74,8 +74,6 @@ export function EmptyState({ icon = '∅', text }) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: 28,
-          color: 'var(--on-surface-variant)',
           marginBottom: 8,
         }}
       >

@@ -11,6 +11,9 @@ import {
   ArrowLeftIcon,
   EyeIcon,
   EyeSlashIcon,
+  CheckCircleIcon,
+  InboxIcon,
+  ReceiptPercentIcon,
 } from '@heroicons/react/24/outline';
 
 
@@ -179,9 +182,9 @@ export default function Dashboard() {
         onMenuClick={() => setSidebarOpen(true)}
         actions={
           <>
-            <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: 'var(--on-surface-variant)', fontWeight: 600 }} className="nav-username">
-              {user?.username}
-            </span>
+            {/* <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: 'white', fontWeight: 600 }} className="sidebar-avatar">
+              {initials}
+            </span> */}
             <button
             className="btn btn-ghost btn-sm"
             style={{ display: 'flex', alignItems: 'center', gap: 6 }}
@@ -305,7 +308,7 @@ export default function Dashboard() {
                         fontWeight: 600,
                       }}
                     >
-                      <span style={{ background: '#dcfce7', borderRadius: 10, padding: '8px 14px' }}>✓ All settled up</span>
+                      <span style={{ background: '#dcfce7', borderRadius: 10, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircleIcon style={{ width: 16, height: 16, color: '#16a34a' }} />All settled up</span>
                     </div>
                   ) : (
                     <table className="owe-table">
