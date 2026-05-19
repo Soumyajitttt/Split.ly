@@ -154,7 +154,7 @@ export default function Landing() {
 <button
   className="btn btn-primary btn-sm"
   style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-  onClick={() => navigate('/')}
+  onClick={() => navigate('/signup')}
 >
   <ArrowRightIcon style={{ width: 15, height: 15, color: '#ffffff' }} />
   GET STARTED
