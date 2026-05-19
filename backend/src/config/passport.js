@@ -35,10 +35,18 @@ passport.use(new GoogleStrategy(
           fullname: profile.displayName,
           email,
           username,
+          avatar: profile.photos?.[0]?.value || null,
           // Random password — Google users won't use password login
           password: Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12),
         });
         await user.save();
+      } else {
+        // Keep avatar in sync in case Google photo changes
+        const freshAvatar = profile.photos?.[0]?.value || null;
+        if (freshAvatar && user.avatar !== freshAvatar) {
+          user.avatar = freshAvatar;
+          await user.save({ validateBeforeSave: false });
+        }
       }
 
       return done(null, user);

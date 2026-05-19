@@ -32,6 +32,10 @@ const userSchema = new Schema({
         type: Schema.Types.ObjectId,
         ref: 'Expense'
     }],
+    avatar: {
+        type: String,
+        default: null
+    },
     refreshToken : {
         type: String
     }

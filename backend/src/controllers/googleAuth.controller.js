@@ -30,6 +30,7 @@ const googleCallback = asyncHandler(async (req, res) => {
       fullname: user.fullname,
       email: user.email,
       username: user.username,
+      avatar: user.avatar || null,
     }));
 
     return res
