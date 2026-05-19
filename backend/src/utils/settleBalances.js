@@ -4,26 +4,33 @@ export const settleBalances = (expenses, members) => {
         balances[member._id.toString()] = 0;
     });
 
-    // We process ALL expenses unless they are fully settled
     expenses.forEach(exp => {
         if (exp.settled) return;
 
-        const splitCount = exp.splitamong.length;
-        if (!splitCount) return;
-
-        const share    = exp.amount / splitCount;
         const payerId  = (exp.paidby._id || exp.paidby).toString();
         const settledBy = (exp.settledBy || []).map(id => id.toString());
 
-        exp.splitamong.forEach(user => {
-            const uid = (user._id || user).toString();
+        if (exp.splitType === 'custom' && exp.customSplits?.length) {
+            exp.customSplits.forEach(cs => {
+                const uid = (cs.user?._id || cs.user).toString();
+                if (uid !== payerId && !settledBy.includes(uid)) {
+                    if (uid in balances)     balances[uid]     -= cs.amount;
+                    if (payerId in balances) balances[payerId] += cs.amount;
+                }
+            });
+        } else {
+            const splitCount = exp.splitamong.length;
+            if (!splitCount) return;
+            const share = exp.amount / splitCount;
 
-            // Apply debt ONLY IF the user is not the payer AND hasn't settled yet
-            if (uid !== payerId && !settledBy.includes(uid)) {
-                if (uid in balances) balances[uid] -= share;
-                if (payerId in balances) balances[payerId] += share;
-            }
-        });
+            exp.splitamong.forEach(user => {
+                const uid = (user._id || user).toString();
+                if (uid !== payerId && !settledBy.includes(uid)) {
+                    if (uid in balances)     balances[uid]     -= share;
+                    if (payerId in balances) balances[payerId] += share;
+                }
+            });
+        }
     });
 
     const creditors = [];

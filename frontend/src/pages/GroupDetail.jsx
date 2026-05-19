@@ -35,7 +35,7 @@ export default function GroupDetail() {
 
   const [expenseModal, setExpenseModal] = useState(false);
   const [shareModal,   setShareModal]   = useState(false);
-  const [expForm, setExpForm] = useState({ description: '', amount: '', paidby: '', splitamong: [] });
+  const [expForm, setExpForm] = useState({ description: '', amount: '', paidby: '', splitamong: [], splitType: 'equal', customSplits: {} });
   const [submitting, setSubmitting] = useState(false);
   const [settlingId, setSettlingId] = useState(null);
 
@@ -61,17 +61,38 @@ export default function GroupDetail() {
   useEffect(() => { fetchAll(); }, [groupId]);
 
   const handleAddExpense = async () => {
-    const { description, amount, paidby, splitamong } = expForm;
-    if (!description)               { showToast('Add a description'); return; }
+    const { description, amount, paidby, splitamong, splitType, customSplits } = expForm;
+    if (!description)                   { showToast('Add a description'); return; }
     if (!amount || Number(amount) <= 0) { showToast('Enter a valid amount'); return; }
-    if (!paidby)                    { showToast('Select who paid'); return; }
-    if (!splitamong.length)         { showToast('Select who to split with'); return; }
+    if (!paidby)                        { showToast('Select who paid'); return; }
+    if (!splitamong.length)             { showToast('Select who to split with'); return; }
+
+    let payload = { description, amount: Number(amount), paidby, splitamong, splitType };
+
+    if (splitType === 'custom') {
+      const customSplitArr = splitamong.map(id => ({
+        user: id,
+        amount: Number(customSplits[id] || 0)
+      }));
+      const customTotal = customSplitArr.reduce((s, cs) => s + cs.amount, 0);
+      const remaining = Number(amount) - customTotal;
+      if (remaining > 0.01) {
+        showToast(`₹${remaining.toFixed(2)} still unassigned — please distribute the full amount`);
+        return;
+      }
+      if (remaining < -0.01) {
+        showToast(`Amounts exceed total by ₹${Math.abs(remaining).toFixed(2)} — please reduce`);
+        return;
+      }
+      payload.customSplits = customSplitArr;
+    }
+
     setSubmitting(true);
     try {
-      await createExpense(groupId, { description, amount: Number(amount), paidby, splitamong });
+      await createExpense(groupId, payload);
       showToast('Expense added!');
       setExpenseModal(false);
-      setExpForm({ description: '', amount: '', paidby: '', splitamong: [] });
+      setExpForm({ description: '', amount: '', paidby: '', splitamong: [], splitType: 'equal', customSplits: {} });
       fetchAll();
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to add expense');
@@ -164,7 +185,7 @@ export default function GroupDetail() {
             <button
             className="btn btn-ghost btn-sm"
             style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/groups')}
           >
             <ArrowLeftIcon style={{ width: 15, height: 15 }} />
             Groups
@@ -173,7 +194,7 @@ export default function GroupDetail() {
               className="btn btn-primary btn-sm"
               style={{ display: 'flex', alignItems: 'center', gap: 6 }}
               onClick={() => {
-                setExpForm({ description: '', amount: '', paidby: '', splitamong: [] });
+                setExpForm({ description: '', amount: '', paidby: '', splitamong: [], splitType: 'equal', customSplits: {} });
                 setExpenseModal(true);
               }}
             >
@@ -512,7 +533,33 @@ export default function GroupDetail() {
             <label className="form-label">
               Split With <span style={{ fontSize: 10, letterSpacing: 0, fontWeight: 500, textTransform: 'none' }}>(select everyone sharing this cost)</span>
             </label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+            {/* Split type toggle */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 10, marginTop: 4 }}>
+              {['equal', 'custom'].map(mode => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setExpForm(f => ({ ...f, splitType: mode, customSplits: {} }))}
+                  style={{
+                    padding: '5px 14px',
+                    borderRadius: 20,
+                    border: '1.5px solid',
+                    borderColor: expForm.splitType === mode ? 'var(--primary)' : 'var(--outline-variant)',
+                    background: expForm.splitType === mode ? 'var(--primary-fixed)' : 'transparent',
+                    color: expForm.splitType === mode ? 'var(--primary)' : 'var(--on-surface-variant)',
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    fontWeight: 700,
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    textTransform: 'capitalize',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {mode === 'equal' ? 'Equal' : 'Custom'}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {group?.members?.map(m => (
                 <button
                   key={m._id}
@@ -539,7 +586,78 @@ export default function GroupDetail() {
             </div>
           </div>
 
-          {sharePreview && (
+          {/* Custom split amount inputs */}
+          {expForm.splitType === 'custom' && expForm.splitamong.length > 0 && (() => {
+            const customTotal = expForm.splitamong.reduce((s, id) => s + Number(expForm.customSplits[id] || 0), 0);
+            const remaining = Number(expForm.amount || 0) - customTotal;
+            const isBalanced = Math.abs(remaining) < 0.01;
+            return (
+              <div style={{
+                background: 'var(--surface-container-low)',
+                border: `1.5px solid ${isBalanced ? 'var(--secondary-container)' : 'var(--outline-variant)'}`,
+                borderRadius: 14,
+                padding: '14px 16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
+              }}>
+                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: 'var(--on-surface-variant)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  Assign amounts
+                </div>
+                {expForm.splitamong.map(id => {
+                  const member = group?.members?.find(m => m._id === id);
+                  return (
+                    <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{
+                        width: 30, height: 30, borderRadius: '50%',
+                        background: 'var(--secondary-fixed)',
+                        color: 'var(--secondary)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontFamily: "'Plus Jakarta Sans', sans-serif",
+                        fontWeight: 800, fontSize: 12, flexShrink: 0
+                      }}>
+                        {(member?.fullname || member?.username || '?')[0].toUpperCase()}
+                      </div>
+                      <span style={{ flex: 1, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 600, color: 'var(--on-surface)' }}>
+                        {member?.fullname || member?.username}
+                        {id === expForm.paidby && <span style={{ fontSize: 10, opacity: 0.55, marginLeft: 4 }}>(payer)</span>}
+                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--surface)', border: '1.5px solid var(--outline-variant)', borderRadius: 10, padding: '4px 10px' }}>
+                        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: 'var(--on-surface-variant)', fontWeight: 600 }}>₹</span>
+                        <input
+                          type="number"
+                          className="no-spinner"
+                          min="0"
+                          step="0.01"
+                          placeholder="0"
+                          value={expForm.customSplits[id] || ''}
+                          onChange={e => setExpForm(f => ({ ...f, customSplits: { ...f.customSplits, [id]: e.target.value } }))}
+                          style={{
+                            width: 70, border: 'none', outline: 'none', background: 'transparent',
+                            fontFamily: "'Be Vietnam Pro', sans-serif", fontSize: 14, fontWeight: 700,
+                            color: 'var(--on-surface)', textAlign: 'right',
+                            MozAppearance: 'textfield', appearance: 'textfield'
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+                {/* Running total */}
+                <div style={{ borderTop: '1px solid var(--outline-variant)', paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: 'var(--on-surface-variant)' }}>
+                    {isBalanced ? 'Balanced!' : remaining > 0 ? `₹${remaining.toFixed(2)} left to assign` : `₹${Math.abs(remaining).toFixed(2)} over budget`}
+                  </span>
+                  <span style={{ fontFamily: "'Be Vietnam Pro', sans-serif", fontSize: 15, fontWeight: 800, color: isBalanced ? 'var(--secondary)' : 'var(--error)' }}>
+                    ₹{customTotal.toFixed(2)} / ₹{Number(expForm.amount || 0).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Equal split preview */}
+          {expForm.splitType === 'equal' && sharePreview && (
             <div
               style={{
                 background: 'var(--surface-container-low)',
@@ -562,12 +680,42 @@ export default function GroupDetail() {
             </div>
           )}
 
-          <div className="modal-actions">
-            <button className="btn btn-ghost" onClick={() => setExpenseModal(false)}>Cancel</button>
-            <button className="btn btn-primary" style={{ borderRadius: 14 }} onClick={handleAddExpense} disabled={submitting}>
-              {submitting ? <Spinner /> : 'Add Expense +'}
-            </button>
-          </div>
+          {(() => {
+            const isCustomUnbalanced = expForm.splitType === 'custom' && expForm.splitamong.length > 0 && (() => {
+              const t = expForm.splitamong.reduce((s, id) => s + Number(expForm.customSplits[id] || 0), 0);
+              return Math.abs(t - Number(expForm.amount || 0)) > 0.01;
+            })();
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {isCustomUnbalanced && (
+                  <div style={{
+                    background: 'color-mix(in srgb, var(--error) 10%, transparent)',
+                    border: '1px solid color-mix(in srgb, var(--error) 30%, transparent)',
+                    borderRadius: 10,
+                    padding: '8px 12px',
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: 'var(--error)',
+                    textAlign: 'center',
+                  }}>
+                    ⚠️ Assign the full ₹{Number(expForm.amount || 0).toFixed(2)} before adding
+                  </div>
+                )}
+                <div className="modal-actions">
+                  <button className="btn btn-ghost" onClick={() => setExpenseModal(false)}>Cancel</button>
+                  <button
+                    className="btn btn-primary"
+                    style={{ borderRadius: 14, opacity: isCustomUnbalanced ? 0.45 : 1, cursor: isCustomUnbalanced ? 'not-allowed' : 'pointer' }}
+                    onClick={handleAddExpense}
+                    disabled={submitting || isCustomUnbalanced}
+                  >
+                    {submitting ? <Spinner /> : 'Add Expense +'}
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </Modal>
 

@@ -1554,3 +1554,10 @@ footer .logo { color: var(--inverse-primary); }
 @media (max-width: 768px) {
   .main-content { padding-bottom: 80px; }
 }
+/* ─── Hide number input spinners for custom split fields ─── */
+input[type=number].no-spinner::-webkit-inner-spin-button,
+input[type=number].no-spinner::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number].no-spinner { -moz-appearance: textfield; appearance: textfield; }

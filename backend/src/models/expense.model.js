@@ -20,12 +20,30 @@ const expenseSchema = new Schema({
     ref: 'Group',
     required: true
   },
+  // 'equal' = divide evenly, 'custom' = per-person amounts in customSplits
+  splitType: {
+    type: String,
+    enum: ['equal', 'custom'],
+    default: 'equal'
+  },
+  // For equal splits — list of user ids sharing the cost
   splitamong: [{
     type: Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+    ref: 'User'
   }],
-  // NEW: Tracks exactly who has paid their share of this specific expense
+  // For custom splits — [{ user: ObjectId, amount: Number }]
+  customSplits: [{
+    user: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    amount: {
+      type: Number,
+      required: true
+    }
+  }],
+  // Tracks who has paid their share of this specific expense
   settledBy: [{
     type: Schema.Types.ObjectId,
     ref: 'User'
