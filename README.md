@@ -296,6 +296,3 @@ All routes are prefixed with `/api/v1.0.0`.
 
 ---
 
-## License
-
-ISC
