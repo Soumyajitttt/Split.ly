@@ -2,11 +2,13 @@ import { Expense } from "../models/expense.model.js";
 import { Group   } from "../models/group.model.js";
 import { User    } from "../models/user.model.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import { formatExpenses  } from "../utils/formatExpenses.js";
-import { settleBalances  } from "../utils/settleBalances.js";
+import { formatExpenses } from "../utils/formatExpenses.js";
+import { settleBalances } from "../utils/settleBalances.js";
+import { sendEmail, emailTemplates } from "../utils/emailService.js";
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * createExpense
+ * Emails every split participant (except the payer) notifying them of their share.
  * ───────────────────────────────────────────────────────────────────────── */
 const createExpense = asyncHandler(async (req, res) => {
     const { description, amount, paidby, splitamong, splitType, customSplits } = req.body;
@@ -40,6 +42,8 @@ const createExpense = asyncHandler(async (req, res) => {
     };
 
     let involvedUserIds = [];
+    // Tracks { userId → shareAmount } for email personalisation
+    let shareMap = {};
 
     if (splitType === 'settlement') {
         if (!splitamong?.length) {
@@ -68,6 +72,7 @@ const createExpense = asyncHandler(async (req, res) => {
         expenseData.customSplits = customSplits.map(cs => ({ user: cs.user, amount: Number(cs.amount) }));
         expenseData.splitamong   = customSplits.map(cs => cs.user);
         involvedUserIds          = customSplits.map(cs => cs.user.toString());
+        customSplits.forEach(cs => { shareMap[cs.user.toString()] = Number(cs.amount); });
 
     } else {
         if (!splitamong?.length) {
@@ -79,6 +84,8 @@ const createExpense = asyncHandler(async (req, res) => {
         if (!allValid) return res.status(400).json({ message: "All split members must belong to the group" });
         expenseData.splitamong = splitamong;
         involvedUserIds        = splitamong.map(String);
+        const equalShare = Number(amount) / splitamong.length;
+        splitamong.forEach(uid => { shareMap[uid.toString()] = equalShare; });
     }
 
     const expense = new Expense(expenseData);
@@ -88,6 +95,32 @@ const createExpense = asyncHandler(async (req, res) => {
 
     const allUsers = [...new Set([...involvedUserIds, payerId.toString()])];
     await User.updateMany({ _id: { $in: allUsers } }, { $addToSet: { expenses: expense._id } });
+
+    // ── Fire-and-forget emails to all non-payer participants ─────────────
+    if (splitType !== 'settlement') {
+        const payer = await User.findById(payerId).select('fullname username');
+        const payerName = payer?.fullname || payer?.username || 'Someone';
+
+        const participantIds = Object.keys(shareMap).filter(id => id !== payerId.toString());
+        if (participantIds.length > 0) {
+            const participants = await User.find({ _id: { $in: participantIds } })
+                .select('fullname username email');
+            participants.forEach(participant => {
+                if (!participant.email) return;
+                sendEmail(emailTemplates.expenseAdded({
+                    toEmail:     participant.email,
+                    toName:      participant.fullname || participant.username,
+                    payerName,
+                    description,
+                    totalAmount: Number(amount),
+                    yourShare:   shareMap[participant._id.toString()] || 0,
+                    groupName:   group.name,
+                    groupId,
+                    splitType:   splitType || 'equal',
+                }));
+            });
+        }
+    }
 
     res.status(201).json({ success: true, message: "Expense created successfully", expense });
 });
@@ -138,36 +171,79 @@ const getExpensesForUser = asyncHandler(async (req, res) => {
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * deleteExpense
+ * Emails every affected participant that their balance has been updated.
  * ───────────────────────────────────────────────────────────────────────── */
 const deleteExpense = asyncHandler(async (req, res) => {
     const { expenseId } = req.params;
-    const expense = await Expense.findById(expenseId);
+    const expense = await Expense.findById(expenseId)
+        .populate("paidby",            "fullname username email")
+        .populate("splitamong",        "fullname username email")
+        .populate("customSplits.user", "fullname username email")
+        .populate("group",             "name _id");
 
     if (!expense) return res.status(404).json({ message: "Expense not found" });
-    if (expense.paidby.toString() !== req.user._id.toString()) {
+    if ((expense.paidby._id || expense.paidby).toString() !== req.user._id.toString()) {
         return res.status(403).json({ message: "Only the payer can delete this expense" });
+    }
+
+    // Capture everything needed for emails BEFORE deleting
+    const payerName   = expense.paidby?.fullname || expense.paidby?.username || 'Someone';
+    const description = expense.description;
+    const totalAmount = expense.amount;
+    const groupName   = expense.group?.name || 'your group';
+    const groupId     = expense.group?._id?.toString() || expense.group?.toString();
+    const isCustom    = expense.splitType === 'custom' && expense.customSplits?.length;
+    const payerId     = (expense.paidby._id || expense.paidby).toString();
+
+    // Build { userId → { user, share } } map
+    const affectedMap = {};
+    if (isCustom) {
+        expense.customSplits.forEach(cs => {
+            const uid = (cs.user?._id || cs.user).toString();
+            affectedMap[uid] = { user: cs.user, share: cs.amount };
+        });
+    } else {
+        const equalShare = (expense.splitamong?.length || 0) > 0
+            ? expense.amount / expense.splitamong.length : 0;
+        (expense.splitamong || []).forEach(u => {
+            const uid = (u._id || u).toString();
+            affectedMap[uid] = { user: u, share: equalShare };
+        });
     }
 
     await Expense.findByIdAndDelete(expenseId);
     await Group.findByIdAndUpdate(expense.group, { $pull: { expenses: expense._id } });
 
-    const splitAmongIds  = expense.splitamong.map(String);
+    const splitAmongIds  = expense.splitamong.map(u => (u._id || u).toString());
     const customSplitIds = (expense.customSplits || []).map(cs =>
         (cs.user?._id || cs.user).toString()
     );
-    const allUsers = [...new Set([
-        ...splitAmongIds,
-        ...customSplitIds,
-        expense.paidby.toString()
-    ])];
-
+    const allUsers = [...new Set([...splitAmongIds, ...customSplitIds, payerId])];
     await User.updateMany({ _id: { $in: allUsers } }, { $pull: { expenses: expense._id } });
+
+    // ── Fire-and-forget deletion emails ──────────────────────────────────
+    if (expense.splitType !== 'settlement') {
+        Object.entries(affectedMap).forEach(([uid, { user, share }]) => {
+            if (uid === payerId) return;
+            if (!user?.email) return;
+            sendEmail(emailTemplates.expenseDeleted({
+                toEmail:    user.email,
+                toName:     user.fullname || user.username || 'there',
+                payerName,
+                description,
+                totalAmount,
+                yourShare:  share,
+                groupName,
+                groupId,
+            }));
+        });
+    }
 
     res.status(200).json({ success: true, message: "Expense deleted successfully" });
 });
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * settleExpense  (legacy per-expense settle — kept for backwards compat)
+ * settleExpense  (legacy per-expense settle)
  * ───────────────────────────────────────────────────────────────────────── */
 const settleExpense = asyncHandler(async (req, res) => {
     const { expenseId } = req.params;
@@ -183,25 +259,18 @@ const settleExpense = asyncHandler(async (req, res) => {
     }
 
     await Expense.findByIdAndUpdate(expenseId, { $addToSet: { settledBy: userId } });
-
     const updated = await Expense.findById(expenseId);
     res.json({ success: true, message: "Expense settled", expense: updated });
 });
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * initiateSettlement  — Feature 3 (step 1 of 2)
- *
- * Called by the DEBTOR when they click "Settle" on a balance row.
- * Records a pending settlement on the Group document.
- * The creditor must then confirm via confirmSettlement.
- *
- * POST /expenses/:groupId/initiate-settlement
- * Body: { fromId, toId, amount }
+ * initiateSettlement  — step 1 of 2
+ * Emails the CREDITOR: "X wants to settle ₹Y with you — confirm in the app."
  * ───────────────────────────────────────────────────────────────────────── */
 const initiateSettlement = asyncHandler(async (req, res) => {
-    const { groupId }          = req.params;
+    const { groupId }              = req.params;
     const { fromId, toId, amount } = req.body;
-    const requesterId          = req.user._id.toString();
+    const requesterId              = req.user._id.toString();
 
     if (!fromId || !toId || !amount) {
         return res.status(400).json({ message: "fromId, toId, and amount are required" });
@@ -216,7 +285,6 @@ const initiateSettlement = asyncHandler(async (req, res) => {
     const isMember = group.members.some(m => (m._id || m).toString() === requesterId);
     if (!isMember) return res.status(403).json({ message: "Not a group member" });
 
-    // Prevent duplicate pending settlements between the same pair
     const alreadyPending = group.pendingSettlements?.some(
         ps => ps.fromId.toString() === fromId.toString()
            && ps.toId.toString()   === toId.toString()
@@ -229,6 +297,23 @@ const initiateSettlement = asyncHandler(async (req, res) => {
     group.pendingSettlements.push({ fromId, toId, amount: Number(amount) });
     await group.save();
 
+    // ── Email the creditor ────────────────────────────────────────────────
+    const [debtor, creditor] = await Promise.all([
+        User.findById(fromId).select('fullname username'),
+        User.findById(toId).select('fullname username email'),
+    ]);
+
+    if (creditor?.email) {
+        sendEmail(emailTemplates.settlementRequested({
+            toEmail:   creditor.email,
+            toName:    creditor.fullname  || creditor.username,
+            fromName:  debtor?.fullname   || debtor?.username || 'Someone',
+            amount:    Number(amount),
+            groupName: group.name,
+            groupId,
+        }));
+    }
+
     res.status(201).json({
         success: true,
         message: "Settlement initiated — waiting for the other party to confirm",
@@ -237,13 +322,8 @@ const initiateSettlement = asyncHandler(async (req, res) => {
 });
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * confirmSettlement  — Feature 3 (step 2 of 2)
- *
- * Called by the CREDITOR when they click "Confirm" on the pending settlement.
- * Removes the pending record and creates the real settlement expense document.
- *
- * POST /expenses/:groupId/confirm-settlement
- * Body: { pendingId }   ← the _id of the pendingSettlement subdocument
+ * confirmSettlement  — step 2 of 2
+ * Emails the DEBTOR: "Your payment was confirmed — balance cleared."
  * ───────────────────────────────────────────────────────────────────────── */
 const confirmSettlement = asyncHandler(async (req, res) => {
     const { groupId }   = req.params;
@@ -262,22 +342,17 @@ const confirmSettlement = asyncHandler(async (req, res) => {
         return res.status(404).json({ message: "Pending settlement not found" });
     }
 
-    // Only the intended creditor (toId) may confirm
     if (pending.toId.toString() !== requesterId) {
         return res.status(403).json({ message: "Only the payment recipient can confirm this settlement" });
     }
 
     const { fromId, toId, amount } = pending;
 
-    // Remove the pending record first (before creating the expense, so a
-    // double-confirm is impossible even if two requests race)
     group.pendingSettlements.pull(pendingId);
     await group.save();
 
-    // Create the real settlement expense — identical to what handleSettleDebt
-    // used to POST directly, but now gated behind the two-party confirmation
     const expenseData = {
-        description: `Settlement: ${fromId} to ${toId}`,   // will be enriched on read via population
+        description: `Settlement: ${fromId} to ${toId}`,
         amount:      Number(amount),
         paidby:      fromId,
         group:       group._id,
@@ -290,20 +365,29 @@ const confirmSettlement = asyncHandler(async (req, res) => {
     await expense.save();
 
     await Group.findByIdAndUpdate(group._id, { $addToSet: { expenses: expense._id } });
-
-    // Only attach to the payer's expense list (recipient sees it via the group)
     await User.findByIdAndUpdate(fromId, { $addToSet: { expenses: expense._id } });
 
-    // Enrich description with real names before responding
     await expense.populate([
-        { path: "paidby",     select: "fullname username" },
-        { path: "splitamong", select: "fullname username" }
+        { path: "paidby",     select: "fullname username email" },
+        { path: "splitamong", select: "fullname username email" }
     ]);
 
-    const payerName  = expense.paidby?.fullname   || expense.paidby?.username   || 'Unknown';
-    const payeeName  = expense.splitamong?.[0]?.fullname || expense.splitamong?.[0]?.username || 'Unknown';
+    const payerName = expense.paidby?.fullname  || expense.paidby?.username  || 'Unknown';
+    const payeeName = expense.splitamong?.[0]?.fullname || expense.splitamong?.[0]?.username || 'Unknown';
     expense.description = `Settlement: ${payerName} to ${payeeName}`;
     await expense.save();
+
+    // ── Email the debtor that their payment was confirmed ─────────────────
+    if (expense.paidby?.email) {
+        sendEmail(emailTemplates.settlementConfirmed({
+            toEmail:         expense.paidby.email,
+            toName:          payerName,
+            confirmedByName: payeeName,
+            amount:          Number(amount),
+            groupName:       group.name,
+            groupId,
+        }));
+    }
 
     res.status(201).json({
         success: true,
@@ -314,12 +398,7 @@ const confirmSettlement = asyncHandler(async (req, res) => {
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * cancelSettlement
- *
- * Called by EITHER party to cancel a pending (unconfirmed) settlement.
- * Both the debtor and creditor should be able to withdraw.
- *
- * DELETE /expenses/:groupId/cancel-settlement
- * Body: { pendingId }
+ * Emails the OTHER party that the settlement was cancelled.
  * ───────────────────────────────────────────────────────────────────────── */
 const cancelSettlement = asyncHandler(async (req, res) => {
     const { groupId }   = req.params;
@@ -338,15 +417,36 @@ const cancelSettlement = asyncHandler(async (req, res) => {
         return res.status(404).json({ message: "Pending settlement not found" });
     }
 
-    // Either party may cancel
     const isParty = pending.fromId.toString() === requesterId
                  || pending.toId.toString()   === requesterId;
     if (!isParty) {
         return res.status(403).json({ message: "Only the debtor or creditor can cancel this settlement" });
     }
 
+    const { fromId, toId, amount } = pending;
+
     group.pendingSettlements.pull(pendingId);
     await group.save();
+
+    // ── Email the OTHER party ─────────────────────────────────────────────
+    const isCancellerDebtor = requesterId === fromId.toString();
+    const otherPartyId      = isCancellerDebtor ? toId : fromId;
+
+    const [canceller, otherParty] = await Promise.all([
+        User.findById(requesterId).select('fullname username'),
+        User.findById(otherPartyId).select('fullname username email'),
+    ]);
+
+    if (otherParty?.email) {
+        sendEmail(emailTemplates.settlementCancelled({
+            toEmail:         otherParty.email,
+            toName:          otherParty.fullname || otherParty.username,
+            cancelledByName: canceller?.fullname || canceller?.username || 'Someone',
+            amount:          Number(amount),
+            groupName:       group.name,
+            groupId,
+        }));
+    }
 
     res.status(200).json({ success: true, message: "Settlement cancelled" });
 });
@@ -391,17 +491,16 @@ const getGroupSummary = asyncHandler(async (req, res) => {
         };
     });
 
-    // Enrich pending settlements with member names for the frontend
     const enrichedPending = (group.pendingSettlements || []).map(ps => {
         const fromMember = group.members.find(m => m._id.toString() === ps.fromId.toString());
         const toMember   = group.members.find(m => m._id.toString() === ps.toId.toString());
         return {
-            _id:    ps._id,
-            fromId: ps.fromId.toString(),
-            toId:   ps.toId.toString(),
-            from:   fromMember?.fullname || fromMember?.username || 'Unknown',
-            to:     toMember?.fullname   || toMember?.username   || 'Unknown',
-            amount: ps.amount,
+            _id:         ps._id,
+            fromId:      ps.fromId.toString(),
+            toId:        ps.toId.toString(),
+            from:        fromMember?.fullname || fromMember?.username || 'Unknown',
+            to:          toMember?.fullname   || toMember?.username   || 'Unknown',
+            amount:      ps.amount,
             initiatedAt: ps.initiatedAt
         };
     });

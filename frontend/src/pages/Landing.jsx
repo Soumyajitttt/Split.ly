@@ -64,7 +64,7 @@ const FEATURES = [
   },
   {
     span: 'small',
-    bg: 'var(--secondary-container, #fd6c00)',
+    bg: 'var(--secondary-container, #ff6b35)',
     textColor: '#fff',
     title: 'Group Flexibility',
     desc: 'Create any number of groups — hostels, trips, flatmates, office lunches. Each fully independent.',
@@ -79,7 +79,7 @@ const FEATURES = [
   },
   {
     span: 'medium-left',
-    bg: 'var(--surface-container-highest, #e4e2e2)',
+    bg: 'var(--surface-container-highest, #e8e6e3)',
     textColor: 'var(--on-surface, #1b1c1c)',
     title: 'Live Settlement View',
     desc: 'The Unpaid tab recalculates in real time as you add or settle expenses. Always accurate, always current.',
@@ -144,8 +144,8 @@ export default function Landing() {
     </>
   ) : (
     <>
-     <button 
-  className="btn btn-ghost btn-sm" 
+     <button
+  className="btn btn-ghost btn-sm"
   onClick={() => navigate('/login')}
 >
   LOG IN
@@ -168,8 +168,17 @@ export default function Landing() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
+        /* ── Local tokens (subtle palette refinement) ── */
+        .page-enter {
+          --brand-orange: #ff6b35;
+          --brand-orange-deep: #e85a28;
+          --brand-blue-glow: #2a7dff;
+          --ink: #141414;
+          --warm-white: #fcfbf8;
+        }
+
         .landing-btn-primary {
-          background: var(--primary);
+          background: linear-gradient(135deg, var(--primary) 0%, var(--brand-blue-glow) 100%);
           color: #fff;
           font-family: 'Be Vietnam Pro', sans-serif;
           font-weight: 800;
@@ -178,13 +187,14 @@ export default function Landing() {
           border-radius: 16px;
           border: none;
           cursor: pointer;
-          box-shadow: 0 16px 40px rgba(0,86,198,0.28);
-          transition: transform 0.18s cubic-bezier(.34,1.56,.64,1), box-shadow 0.18s ease;
+          box-shadow: 0 14px 36px rgba(0,86,198,0.30), inset 0 1px 0 rgba(255,255,255,0.18);
+          transition: transform 0.18s cubic-bezier(.34,1.56,.64,1), box-shadow 0.18s ease, filter 0.18s ease;
           will-change: transform;
         }
         .landing-btn-primary:hover {
           transform: translateY(-3px);
-          box-shadow: 0 24px 48px rgba(0,86,198,0.35);
+          box-shadow: 0 22px 46px rgba(0,86,198,0.38), inset 0 1px 0 rgba(255,255,255,0.22);
+          filter: brightness(1.04);
         }
         .landing-btn-outline {
           background: #fff;
@@ -194,16 +204,17 @@ export default function Landing() {
           font-size: 16px;
           padding: 14px 32px;
           border-radius: 16px;
-          border: 2px solid var(--outline-variant, #c2c6d8);
+          border: 2px solid var(--outline-variant, #d6d2cb);
           cursor: pointer;
           display: flex;
           align-items: center;
           gap: 8px;
-          transition: background 0.18s ease, transform 0.18s cubic-bezier(.34,1.56,.64,1);
+          transition: background 0.18s ease, transform 0.18s cubic-bezier(.34,1.56,.64,1), border-color 0.18s ease;
           will-change: transform;
         }
         .landing-btn-outline:hover {
-          background: var(--surface-container-low);
+          background: var(--surface-container-low, #f5f3ef);
+          border-color: var(--on-surface, #1b1c1c);
           transform: translateY(-2px);
         }
         .landing-btn-ghost {
@@ -214,13 +225,14 @@ export default function Landing() {
           font-size: 16px;
           padding: 14px 32px;
           border-radius: 16px;
-          border: 2px solid rgba(255,255,255,0.3);
+          border: 2px solid rgba(255,255,255,0.35);
           cursor: pointer;
-          transition: background 0.18s ease;
+          transition: background 0.18s ease, border-color 0.18s ease;
           will-change: transform;
         }
         .landing-btn-ghost:hover {
-          background: rgba(255,255,255,0.1);
+          background: rgba(255,255,255,0.12);
+          border-color: rgba(255,255,255,0.6);
         }
 
         /* Hero */
@@ -231,7 +243,7 @@ export default function Landing() {
         }
         .hero-left {
           flex: 1;
-          background: #fff;
+          background: var(--warm-white, #fcfbf8);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -280,7 +292,11 @@ export default function Landing() {
         }
         .hero-h1 em {
           font-style: italic;
-          color: var(--primary);
+          background: linear-gradient(135deg, var(--primary) 0%, var(--brand-blue-glow) 100%);
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          color: var(--primary); /* fallback */
         }
         .hero-sub {
           font-family: 'Plus Jakarta Sans', sans-serif;
@@ -300,7 +316,7 @@ export default function Landing() {
         /* Hero Right */
         .hero-right {
           flex: 1;
-          background: #fd6c00;
+          background: linear-gradient(135deg, #ff6b35 0%, #ff8a4a 50%, #e85a28 100%);
           position: relative;
           display: flex;
           align-items: center;
@@ -325,13 +341,13 @@ export default function Landing() {
           backdrop-filter: blur(20px);
           border-radius: 24px;
           padding: 20px 24px;
-          box-shadow: 0 24px 60px rgba(0,0,0,0.15);
+          box-shadow: 0 24px 60px rgba(0,0,0,0.18);
           position: absolute;
-          left: 10px; /* Adjusted to overlap properly */
-          top: 30px;  /* Adjusted spacing */
+          left: 10px;
+          top: 30px;
           transform: rotate(-6deg);
           z-index: 20;
-          border: 1.5px solid rgba(255,255,255,0.6);
+          border: 1.5px solid rgba(255,255,255,0.7);
           transition: transform 0.4s cubic-bezier(.34,1.56,.64,1);
           width: 200px;
         }
@@ -342,7 +358,7 @@ export default function Landing() {
           width: 40px;
           height: 40px;
           border-radius: 12px;
-          background: rgba(253,108,0,0.12);
+          background: rgba(255,107,53,0.14);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -356,7 +372,7 @@ export default function Landing() {
           margin-bottom: 10px;
         }
         .receipt-amount-wrap {
-          background: var(--surface-container-low, #f5f3f3);
+          background: var(--surface-container-low, #f5f3ef);
           border-radius: 12px;
           padding: 10px 14px;
         }
@@ -372,7 +388,7 @@ export default function Landing() {
           font-family: 'Be Vietnam Pro', sans-serif;
           font-size: 24px;
           font-weight: 900;
-          color: #fd6c00;
+          color: #ff6b35;
           letter-spacing: -0.02em;
         }
 
@@ -381,12 +397,12 @@ export default function Landing() {
           background: #fff;
           border-radius: 48px;
           padding: 36px;
-          box-shadow: 0 32px 80px rgba(0,0,0,0.18);
-          border: 4px solid rgba(255,255,255,0.4);
+          box-shadow: 0 32px 80px rgba(0,0,0,0.20);
+          border: 4px solid rgba(255,255,255,0.5);
           transform: rotate(3deg);
           position: relative;
           z-index: 10;
-          margin-top: 50px; /* Reduced gap to fix top overlap */
+          margin-top: 50px;
         }
         .friend-grid {
           display: grid;
@@ -411,19 +427,21 @@ export default function Landing() {
           color: #fff;
           line-height: 1.05;
           letter-spacing: -0.02em;
+          text-shadow: 0 2px 24px rgba(0,0,0,0.10);
         }
 
         /* ── HOW IT WORKS (MINIMAL TYPOGRAPHY) ── */
         .how-section {
-          background: #fff; /* Pure white for high contrast */
+          background: #fff;
           padding: 100px 80px 120px;
-          border-top: 1px solid var(--outline-variant, #e4e2e2);
+          border-top: 1px solid var(--outline-variant, #ece9e3);
+          scroll-margin-top: 80px;
         }
         .how-inner {
-          max-width: 1000px; /* Slightly narrower for better reading width */
+          max-width: 1000px;
           margin: 0 auto;
         }
-        
+
         .how-header-minimal {
           text-align: center;
           margin-bottom: 80px;
@@ -448,7 +466,7 @@ export default function Landing() {
         .steps-minimal-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 32px; /* Slightly reduced gap because we added padding to cards */
+          gap: 32px;
         }
 
         /* ── Base Minimal Step ── */
@@ -456,12 +474,11 @@ export default function Landing() {
           border-top: 2px solid var(--on-surface, #1b1c1c);
           padding: 32px 24px;
           position: relative;
-          overflow: hidden; /* Keeps the color fill inside the box */
+          overflow: hidden;
           transition: border-color 0.4s ease;
           z-index: 1;
         }
 
-        /* ── The Color Fill Background (Hidden by default) ── */
         .step-minimal::before {
           content: '';
           position: absolute;
@@ -469,39 +486,36 @@ export default function Landing() {
           left: 0;
           width: 100%;
           height: 100%;
-          transform: scaleY(0); /* Squished to the bottom */
+          transform: scaleY(0);
           transform-origin: bottom;
           transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
           z-index: -1;
         }
 
-        /* Hover Animation - Expands the background */
         .step-minimal:hover::before {
           transform: scaleY(1);
         }
 
-        /* Removes the black border on hover so it blends smoothly */
         .step-minimal:hover {
           border-top-color: transparent;
         }
 
-        /* Unique Colors for each step */
-        .step-1::before { background: #fd6c00; } /* Orange */
-        .step-2::before { background: var(--primary, #0056c6); } /* Blue */
-        .step-3::before { background: var(--on-surface, #1b1c1c); } /* Dark */
+        /* Refined step colors */
+        .step-1::before { background: linear-gradient(180deg, #ff8a4a 0%, #ff6b35 100%); }
+        .step-2::before { background: linear-gradient(180deg, var(--brand-blue-glow, #2a7dff) 0%, var(--primary, #0056c6) 100%); }
+        .step-3::before { background: linear-gradient(180deg, #2a2a2a 0%, #141414 100%); }
 
-        /* ── Typography & Hover Color Inversion ── */
         .step-minimal-number {
           font-family: 'Be Vietnam Pro', sans-serif;
           font-size: 72px;
           font-weight: 900;
-          color: var(--surface-container-highest, #e4e2e2);
+          color: var(--surface-container-highest, #e8e6e3);
           line-height: 0.9;
           letter-spacing: -0.05em;
           margin-bottom: 24px;
           transition: color 0.4s ease;
         }
-        
+
         .step-minimal-title {
           font-family: 'Be Vietnam Pro', sans-serif;
           font-size: 24px;
@@ -510,7 +524,7 @@ export default function Landing() {
           margin: 0 0 12px 0;
           transition: color 0.4s ease;
         }
-        
+
         .step-minimal-desc {
           font-family: 'Plus Jakarta Sans', sans-serif;
           font-size: 15px;
@@ -520,9 +534,8 @@ export default function Landing() {
           transition: color 0.4s ease;
         }
 
-        /* Change text to white when hovered */
         .step-minimal:hover .step-minimal-number {
-          color: rgba(255, 255, 255, 0.25); /* Cool translucent white */
+          color: rgba(255, 255, 255, 0.28);
         }
         .step-minimal:hover .step-minimal-title,
         .step-minimal:hover .step-minimal-desc {
@@ -534,31 +547,24 @@ export default function Landing() {
           .how-section { padding: 60px 28px; }
         }
 
-        /* The Tinted Cards */
+        /* Tinted cards (kept for reference) */
         .step-card-tint {
           border-radius: 32px;
           padding: 48px 36px;
           display: flex;
           flex-direction: column;
           transition: transform 0.3s cubic-bezier(.34,1.56,.64,1), box-shadow 0.3s ease;
-          border: 1px solid rgba(255,255,255,0.6); /* Adds a slight glass/inset effect */
+          border: 1px solid rgba(255,255,255,0.6);
           cursor: default;
         }
-        .step-card-tint:hover {
-          transform: translateY(-8px) scale(1.01);
-        }
-
-        /* Specific Background Tints & Hover Glows */
-        .bg-orange-tint { background: rgba(253, 108, 0, 0.05); }
-        .bg-orange-tint:hover { box-shadow: 0 24px 48px rgba(253, 108, 0, 0.12); }
-
+        .step-card-tint:hover { transform: translateY(-8px) scale(1.01); }
+        .bg-orange-tint { background: rgba(255, 107, 53, 0.05); }
+        .bg-orange-tint:hover { box-shadow: 0 24px 48px rgba(255, 107, 53, 0.12); }
         .bg-blue-tint { background: rgba(0, 86, 198, 0.05); }
         .bg-blue-tint:hover { box-shadow: 0 24px 48px rgba(0, 86, 198, 0.12); }
+        .bg-dark-tint { background: rgba(20, 20, 20, 0.04); }
+        .bg-dark-tint:hover { box-shadow: 0 24px 48px rgba(20, 20, 20, 0.08); }
 
-        .bg-dark-tint { background: rgba(27, 28, 28, 0.04); }
-        .bg-dark-tint:hover { box-shadow: 0 24px 48px rgba(27, 28, 28, 0.08); }
-
-        /* Floating White Icon Circle */
         .step-emoji {
           width: 64px;
           height: 64px;
@@ -571,7 +577,6 @@ export default function Landing() {
           margin-bottom: 32px;
           box-shadow: 0 8px 16px rgba(0,0,0,0.06);
         }
-
         .step-title {
           font-family: 'Be Vietnam Pro', sans-serif;
           font-size: 24px;
@@ -586,15 +591,14 @@ export default function Landing() {
           line-height: 1.65;
           margin: 0;
         }
-        
 
         /* Marquee */
         .marquee-rule {
           overflow: hidden;
-          border-top: 1.5px solid var(--outline-variant, #c2c6d8);
-          border-bottom: 1.5px solid var(--outline-variant, #c2c6d8);
+          border-top: 1.5px solid var(--outline-variant, #d6d2cb);
+          border-bottom: 1.5px solid var(--outline-variant, #d6d2cb);
           padding: 18px 0;
-          background: var(--surface-container-low, #f5f3f3);
+          background: var(--surface-container-low, #f5f3ef);
         }
         .marquee-rule-track {
           display: flex;
@@ -613,7 +617,7 @@ export default function Landing() {
         .marquee-rule-item::before {
           content: '·';
           margin-right: 32px;
-          color: var(--primary);
+          color: var(--brand-orange, #ff6b35);
         }
         @keyframes marquee {
           from { transform: translateX(0); }
@@ -622,7 +626,7 @@ export default function Landing() {
 
         /* Built for real life (bento) */
         .bento-section {
-          background: #1b1c1c;
+          background: radial-gradient(ellipse at top, #1f1f1f 0%, #141414 70%);
           padding: 88px 80px 96px;
           position: relative;
           overflow: hidden;
@@ -649,7 +653,7 @@ export default function Landing() {
         .bento-subhead {
           font-family: 'Plus Jakarta Sans', sans-serif;
           font-size: 18px;
-          color: rgba(255,255,255,0.55);
+          color: rgba(255,255,255,0.6);
           font-weight: 500;
         }
         .bento-grid {
@@ -663,7 +667,7 @@ export default function Landing() {
           padding: 40px;
           overflow: hidden;
           position: relative;
-          transition: transform 0.25s cubic-bezier(.34,1.56,.64,1);
+          transition: transform 0.25s cubic-bezier(.34,1.56,.64,1), box-shadow 0.25s ease;
           cursor: default;
           will-change: transform;
           isolation: isolate;
@@ -676,6 +680,7 @@ export default function Landing() {
           flex-direction: column;
           justify-content: space-between;
         }
+        .bento-large:hover { box-shadow: 0 28px 60px rgba(0,86,198,0.35); }
         .bento-small {
           grid-column: span 4;
           min-height: 400px;
@@ -686,6 +691,7 @@ export default function Landing() {
           gap: 24px;
           text-align: center;
         }
+        .bento-small:hover { box-shadow: 0 28px 60px rgba(255,107,53,0.35); }
         .bento-mid-left {
           grid-column: span 5;
           min-height: 320px;
@@ -736,7 +742,7 @@ export default function Landing() {
           width: 52px;
           height: 52px;
           border-radius: 50%;
-          border: 4px solid #1b1c1c;
+          border: 4px solid #e8e6e3;
           margin-right: -12px;
           display: flex;
           align-items: center;
@@ -761,13 +767,16 @@ export default function Landing() {
           cursor: pointer;
           padding: 0;
           margin-top: 14px;
-          transition: gap 0.2s ease;
         }
-        .bento-cta-link:hover { gap: 12px; }
+        .bento-cta-link span {
+          display: inline-block;
+          transition: transform 0.2s ease;
+        }
+        .bento-cta-link:hover span { transform: translateX(4px); }
 
         /* Testimonials */
         .testimonials-section {
-          background: var(--surface, #fbf9f8);
+          background: var(--surface, #fbf9f6);
           padding: 88px 0 96px;
           overflow: hidden;
           position: relative;
@@ -816,6 +825,7 @@ export default function Landing() {
           cursor: default;
           will-change: transform;
           isolation: isolate;
+          border: 1px solid rgba(0,0,0,0.03);
         }
         .testimonial-card:hover {
           transform: translateY(-6px) scale(1.02);
@@ -833,7 +843,7 @@ export default function Landing() {
           width: 34px;
           height: 34px;
           border-radius: 50%;
-          background: var(--primary);
+          background: linear-gradient(135deg, var(--primary) 0%, var(--brand-blue-glow, #2a7dff) 100%);
           color: #fff;
           font-family: 'Be Vietnam Pro', sans-serif;
           font-weight: 800;
@@ -858,7 +868,7 @@ export default function Landing() {
 
         /* Final CTA */
         .final-cta {
-          background: var(--primary);
+          background: linear-gradient(135deg, var(--primary) 0%, #1148a8 100%);
           padding: 88px 60px;
           text-align: center;
           position: relative;
@@ -871,7 +881,7 @@ export default function Landing() {
           font-size: 12px;
           letter-spacing: 0.15em;
           text-transform: uppercase;
-          color: rgba(255,255,255,0.65);
+          color: rgba(255,255,255,0.7);
           margin-bottom: 20px;
         }
         .final-cta h2 {
@@ -883,11 +893,11 @@ export default function Landing() {
           letter-spacing: -0.03em;
           margin: 0 0 20px;
         }
-        .final-cta h2 em { font-style: italic; opacity: 0.85; }
+        .final-cta h2 em { font-style: italic; opacity: 0.9; }
         .final-cta p {
           font-family: 'Plus Jakarta Sans', sans-serif;
           font-size: 17px;
-          color: rgba(255,255,255,0.7);
+          color: rgba(255,255,255,0.75);
           margin: 0 0 44px;
           line-height: 1.6;
         }
@@ -903,10 +913,10 @@ export default function Landing() {
           border: none;
           cursor: pointer;
           transition: transform 0.18s cubic-bezier(.34,1.56,.64,1), box-shadow 0.18s ease;
-          box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+          box-shadow: 0 8px 32px rgba(0,0,0,0.14);
           will-change: transform;
         }
-        .final-btn-white:hover { transform: translateY(-3px); box-shadow: 0 16px 40px rgba(0,0,0,0.18); }
+        .final-btn-white:hover { transform: translateY(-3px); box-shadow: 0 18px 44px rgba(0,0,0,0.20); }
 
 
         @media (max-width: 900px) {
@@ -976,8 +986,8 @@ export default function Landing() {
             <div className="receipt-card">
               <div className="receipt-icon-wrap">
                 <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-                  <rect x="3" y="2" width="16" height="18" rx="3" stroke="#fd6c00" strokeWidth="2"/>
-                  <path d="M7 7h8M7 11h6M7 15h4" stroke="#fd6c00" strokeWidth="1.8" strokeLinecap="round"/>
+                  <rect x="3" y="2" width="16" height="18" rx="3" stroke="#ff6b35" strokeWidth="2"/>
+                  <path d="M7 7h8M7 11h6M7 15h4" stroke="#ff6b35" strokeWidth="1.8" strokeLinecap="round"/>
                 </svg>
               </div>
               <div className="receipt-label">Group Dinner</div>
@@ -994,16 +1004,16 @@ export default function Landing() {
                 <div className="friend-cell" style={{ background: 'rgba(0,86,198,0.15)' }}>
                   <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="14" r="7" fill="var(--primary)" fillOpacity="0.7"/><ellipse cx="18" cy="30" rx="12" ry="7" fill="var(--primary)" fillOpacity="0.4"/></svg>
                 </div>
-                <div className="friend-cell" style={{ background: 'rgba(253,108,0,0.15)' }}>
-                  <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 3l2.5 8H24l-6.5 4.7 2.5 8L14 19l-6 4.7 2.5-8L4 11h7.5z" fill="#fd6c00"/></svg>
+                <div className="friend-cell" style={{ background: 'rgba(255,107,53,0.15)' }}>
+                  <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 3l2.5 8H24l-6.5 4.7 2.5 8L14 19l-6 4.7 2.5-8L4 11h7.5z" fill="#ff6b35"/></svg>
                 </div>
-                <div className="friend-cell" style={{ background: 'var(--surface-container-highest, #e4e2e2)' }} />
+                <div className="friend-cell" style={{ background: 'var(--surface-container-highest, #e8e6e3)' }} />
                 {/* Row 2 */}
-                <div className="friend-cell" style={{ background: 'var(--surface-container-highest, #e4e2e2)' }} />
+                <div className="friend-cell" style={{ background: 'var(--surface-container-highest, #e8e6e3)' }} />
                 <div className="friend-cell" style={{ background: 'var(--primary)', color: '#fff' }}>
                   <span style={{ fontFamily: "'Be Vietnam Pro', sans-serif", fontWeight: 900, fontSize: 20 }}>+12</span>
                 </div>
-                <div className="friend-cell" style={{ background: 'var(--surface-container-highest, #e4e2e2)' }} />
+                <div className="friend-cell" style={{ background: 'var(--surface-container-highest, #e8e6e3)' }} />
               </div>
             </div>
 
@@ -1018,12 +1028,12 @@ export default function Landing() {
 {/* ── HOW IT WORKS (EDITORIAL / TYPOGRAPHIC) ──────────────────── */}
       <div className="how-section" ref={whyRef}>
         <div className="how-inner">
-          
+
           <div className="how-header-minimal">
             <h2 className="how-heading">Simple as 1-2-3.</h2>
             <p className="how-desc-minimal">No tutorials. No onboarding. Just pure efficiency.</p>
           </div>
-          
+
           <div className="steps-minimal-grid">
             {/* Step 1 */}
             <div className="step-minimal step-1">
@@ -1074,7 +1084,7 @@ export default function Landing() {
 
           <div className="bento-grid">
             {/* Large blue card */}
-            <div className="bento-card bento-large" style={{ background: 'var(--primary)' }}>
+            <div className="bento-card bento-large" style={{ background: 'linear-gradient(135deg, var(--primary) 0%, #1148a8 100%)' }}>
               <div style={{ position: 'absolute', top: 0, right: 0, padding: 40, opacity: 0.15 }}>
                 <svg width="200" height="200" viewBox="0 0 200 200" fill="none">
                   <circle cx="100" cy="100" r="80" stroke="white" strokeWidth="12"/>
@@ -1090,7 +1100,7 @@ export default function Landing() {
                 <div className="bento-card-title" style={{ color: '#fff' }}>
                   Minimum<br />Transactions
                 </div>
-                <p className="bento-card-desc" style={{ color: 'rgba(255,255,255,0.78)' }}>
+                <p className="bento-card-desc" style={{ color: 'rgba(255,255,255,0.8)' }}>
                   Our greedy algorithm collapses complex debts into the fewest possible payments. No unnecessary back-and-forth between friends.
                 </p>
               </div>
@@ -1101,14 +1111,14 @@ export default function Landing() {
             </div>
 
             {/* Small orange card */}
-            <div className="bento-card bento-small" style={{ background: '#fd6c00', position: 'relative' }}>
+            <div className="bento-card bento-small" style={{ background: 'linear-gradient(135deg, #ff8a4a 0%, #ff6b35 60%, #e85a28 100%)', position: 'relative' }}>
               <DotPattern
                 color="rgba(255,255,255,0.12)"
                 style={{ inset: 0, width: '100%', height: '100%', borderRadius: 40 }}
               />
               <div style={{
                 width: 88, height: 88,
-                background: 'rgba(255,255,255,0.18)',
+                background: 'rgba(255,255,255,0.20)',
                 borderRadius: 28,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 transform: 'rotate(12deg)',
@@ -1127,18 +1137,18 @@ export default function Landing() {
                 <div className="bento-card-title" style={{ color: '#fff', fontSize: 28 }}>
                   Group<br />Flexibility
                 </div>
-                <p className="bento-card-desc" style={{ color: 'rgba(255,255,255,0.78)', fontSize: 14 }}>
+                <p className="bento-card-desc" style={{ color: 'rgba(255,255,255,0.82)', fontSize: 14 }}>
                   Create any number of groups — hostels, trips, flatmates, office lunches. Each fully independent.
                 </p>
               </div>
             </div>
 
             {/* Mid left – Live Activity */}
-            <div className="bento-card bento-mid-left" style={{ background: 'var(--surface-container-highest, #e4e2e2)', color: 'var(--on-surface)' }}>
+            <div className="bento-card bento-mid-left" style={{ background: 'var(--surface-container-highest, #e8e6e3)', color: 'var(--on-surface)' }}>
               <div className="avatar-stack">
                 <div className="avatar-circle" style={{ background: 'var(--primary)' }}>R</div>
-                <div className="avatar-circle" style={{ background: '#fd6c00' }}>A</div>
-                <div className="avatar-circle" style={{ background: '#1b1c1c', border: '4px solid #e4e2e2' }}>S</div>
+                <div className="avatar-circle" style={{ background: '#ff6b35' }}>A</div>
+                <div className="avatar-circle" style={{ background: '#141414', border: '4px solid #e8e6e3' }}>S</div>
               </div>
               <div>
                 <div className="bento-card-title" style={{ color: 'var(--on-surface)' }}>Live<br />Settlement View</div>

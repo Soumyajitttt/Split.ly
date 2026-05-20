@@ -2,7 +2,8 @@ import { Group   } from "../models/group.model.js";
 import { User    } from "../models/user.model.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { generateUniqueGroupCode } from "../utils/generateCode.js";
-import { settleBalances } from "../utils/settleBalances.js";
+import { settleBalances  } from "../utils/settleBalances.js";
+import { sendEmail, emailTemplates } from "../utils/emailService.js";
 
 const createGroup = asyncHandler(async (req, res) => {
     const { name, description } = req.body;
@@ -66,6 +67,21 @@ const joinGroup = asyncHandler(async (req, res) => {
         { path: "members",   select: "fullname username email" },
         { path: "createdBy", select: "fullname username" }
     ]);
+
+    // ── Email the new member a welcome / confirmation ─────────────────────
+    const newMember = group.members.find(
+        m => (m._id || m).toString() === req.user._id.toString()
+    );
+    if (newMember?.email) {
+        sendEmail(emailTemplates.addedToGroup({
+            toEmail:     newMember.email,
+            toName:      newMember.fullname || newMember.username,
+            addedByName: null,   // self-joined via code — no specific inviter
+            groupName:   group.name,
+            groupCode:   group.groupcode,
+            groupId:     group._id.toString(),
+        }));
+    }
 
     return res.status(200).json({ 
         success: true, 

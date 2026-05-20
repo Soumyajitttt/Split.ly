@@ -903,8 +903,8 @@ function PendingSettlementRow({ ps, myId, onConfirm, onCancel }) {
         </div>
         <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: 'var(--on-surface-variant)' }}>
           {iAmCreditor
-            ? '✋ Confirm you received this payment'
-            : '⏳ Waiting for recipient to confirm receipt'}
+            ? 'Confirm you received this payment'
+            : 'Waiting for recipient to confirm receipt'}
         </div>
       </div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
