@@ -6,7 +6,8 @@ import { Modal, EmptyState, Spinner } from '../components/ui';
 import BottomNav from '../components/layout/BottomNav';
 import {
   getGroupDetails, getGroupExpenses, getGroupSummary,
-  createExpense, deleteExpense, settleExpense, leaveGroup
+  createExpense, deleteExpense, settleExpense, leaveGroup,
+  initiateSettlement, confirmSettlement, cancelSettlement,
 } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -41,6 +42,11 @@ export default function GroupDetail() {
   const [expForm, setExpForm] = useState({ description: '', amount: '', paidby: '', splitamong: [], splitType: 'equal', customSplits: {} });
   const [submitting, setSubmitting] = useState(false);
   const [settlingId, setSettlingId] = useState(null);
+
+  // Two-party settlement state
+  // confirmTarget: the pendingSettlement object the creditor is about to confirm
+  const [confirmTarget, setConfirmTarget] = useState(null);
+  const [confirming,    setConfirming]    = useState(false);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -102,25 +108,56 @@ export default function GroupDetail() {
     } finally { setSubmitting(false); }
   };
 
-const handleSettleDebt = async (settlement) => {
-  setSettlingId(settlement.fromId + settlement.toId);
-  try {
-    // Call createExpense with 'settlement' splitType to correctly record the payment transfer
-    await createExpense(groupId, {
-      description: `Settlement: ${settlement.from} to ${settlement.to}`,
-      amount: Number(settlement.amount),
-      paidby: settlement.fromId,     // The debtor pays
-      splitamong: [settlement.toId],  // Split ONLY with the creditor
-      splitType: 'settlement'         // Changed back to 'settlement'
-    });
-    showToast(`${settlement.from} → ${settlement.to} settled`);
-    fetchAll();
-  } catch (err) {
-    showToast(err.response?.data?.message || 'Failed to settle');
-  } finally {
-    setSettlingId(null);
-  }
-};
+  // ── Feature 3: Two-party settlement ───────────────────────────────────────
+  // Step 1: Debtor clicks "Settle" → initiate a pending settlement
+  const handleInitiateSettle = async (settlement) => {
+    setSettlingId(settlement.fromId + settlement.toId);
+    try {
+      await initiateSettlement(groupId, {
+        fromId: settlement.fromId,
+        toId:   settlement.toId,
+        amount: Number(settlement.amount),
+      });
+      showToast(`Settlement request sent to ${settlement.to} — waiting for confirmation`);
+      fetchAll();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to initiate settlement');
+    } finally {
+      setSettlingId(null);
+    }
+  };
+
+  // Step 2: Creditor clicks "Confirm" → open confirmation modal
+  const handleOpenConfirm = (pending) => {
+    setConfirmTarget(pending);
+  };
+
+  // Step 2b: Creditor confirms in modal → finalise
+  const handleConfirmSettle = async () => {
+    if (!confirmTarget) return;
+    setConfirming(true);
+    try {
+      await confirmSettlement(groupId, { pendingId: confirmTarget._id });
+      showToast(`Settlement confirmed — ₹${confirmTarget.amount} from ${confirmTarget.from} recorded`);
+      setConfirmTarget(null);
+      fetchAll();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to confirm settlement');
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  // Either party cancels a pending settlement
+  const handleCancelPending = async (pending) => {
+    try {
+      await cancelSettlement(groupId, { pendingId: pending._id });
+      showToast('Settlement cancelled');
+      fetchAll();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to cancel');
+    }
+  };
 
   const handleDeleteExpense = async (expenseId) => {
     if (!window.confirm('Delete this expense?')) return;
@@ -160,9 +197,10 @@ const handleSettleDebt = async (settlement) => {
     </div>
   );
 
-  const totalExpense = summary?.totalExpense || 0;
-  const settlements  = summary?.settlements  || [];
-  const myId         = user?._id;
+  const totalExpense        = summary?.totalExpense        || 0;
+  const settlements         = summary?.settlements         || [];
+  const pendingSettlements  = summary?.pendingSettlements  || [];
+  const myId                = user?._id;
 
   const myNetBalance = settlements.reduce((net, s) => {
     if (s.fromId === myId) return net - s.amount;
@@ -338,24 +376,56 @@ const handleSettleDebt = async (settlement) => {
               {/* Balances Tab */}
               {activeTab === 'balances' && (
                 <div>
-                  {settlements.length === 0 ? (
+                  {settlements.length === 0 && pendingSettlements.length === 0 ? (
                     <EmptyState icon={<CheckCircleIcon style={{ width: 32, height: 32, color: "var(--secondary)" }} />} text="All settled up — no one owes anything!" />
                   ) : (
                     <>
-                      <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: 'var(--on-surface-variant)', marginBottom: 16, fontWeight: 600 }}>
-                        {settlements.length} net payment{settlements.length !== 1 ? 's' : ''} needed after cancelling all debts
-                      </p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {settlements.map((s, i) => (
-                          <SettlementRow
-                            key={i}
-                            s={s}
-                            myId={myId}
-                            isLoading={settlingId === s.fromId + s.toId}
-                            onSettle={() => handleSettleDebt(s)}
-                          />
-                        ))}
-                      </div>
+                      {/* Pending settlement confirmations — shown at top as action items */}
+                      {pendingSettlements.length > 0 && (
+                        <div style={{ marginBottom: 16 }}>
+                          <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: 8 }}>
+                            Awaiting confirmation
+                          </p>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {pendingSettlements.map((ps) => (
+                              <PendingSettlementRow
+                                key={ps._id}
+                                ps={ps}
+                                myId={myId}
+                                onConfirm={() => handleOpenConfirm(ps)}
+                                onCancel={() => handleCancelPending(ps)}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Open net balances */}
+                      {settlements.length > 0 && (
+                        <>
+                          <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: 'var(--on-surface-variant)', marginBottom: 10, fontWeight: 600 }}>
+                            {settlements.length} net payment{settlements.length !== 1 ? 's' : ''} needed after cancelling all debts
+                          </p>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {settlements.map((s, i) => {
+                              // Check if this exact pair already has a pending settlement in-flight
+                              const isPending = pendingSettlements.some(
+                                ps => ps.fromId === s.fromId && ps.toId === s.toId
+                              );
+                              return (
+                                <SettlementRow
+                                  key={i}
+                                  s={s}
+                                  myId={myId}
+                                  isPending={isPending}
+                                  isLoading={settlingId === s.fromId + s.toId}
+                                  onSettle={() => handleInitiateSettle(s)}
+                                />
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
                     </>
                   )}
                 </div>
@@ -663,6 +733,55 @@ const handleSettleDebt = async (settlement) => {
         </button>
       </Modal>
 
+      {/* Confirm Settlement Modal — shown to the creditor (payee) */}
+      <Modal
+        open={!!confirmTarget}
+        onClose={() => !confirming && setConfirmTarget(null)}
+        title="Confirm Settlement"
+      >
+        {confirmTarget && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div style={{
+              background: 'var(--surface-container-low)',
+              borderRadius: 16, padding: '20px 24px', textAlign: 'center',
+              border: '1.5px solid var(--outline-variant)',
+            }}>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: 'var(--on-surface-variant)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+                Payment to you
+              </div>
+              <div style={{ fontFamily: "'Be Vietnam Pro', sans-serif", fontSize: 36, fontWeight: 900, color: '#15803d', letterSpacing: '-0.03em', marginBottom: 4 }}>
+                ₹{Number(confirmTarget.amount).toLocaleString('en-IN')}
+              </div>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 600, color: 'var(--on-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <span style={{ fontWeight: 700 }}>{confirmTarget.from}</span>
+                <ArrowRightIcon style={{ width: 14, height: 14, color: 'var(--outline)' }} />
+                <span style={{ fontWeight: 700, color: '#15803d' }}>you</span>
+              </div>
+            </div>
+            <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: 'var(--on-surface-variant)', fontWeight: 500, lineHeight: 1.5, margin: 0 }}>
+              <strong>{confirmTarget.from}</strong> has marked this payment as sent. Please confirm only if you have actually received ₹{Number(confirmTarget.amount).toLocaleString('en-IN')}.
+            </p>
+            <div className="modal-actions">
+              <button
+                className="btn btn-ghost"
+                onClick={() => setConfirmTarget(null)}
+                disabled={confirming}
+              >
+                Not yet
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ borderRadius: 14, background: '#15803d', borderColor: '#15803d' }}
+                onClick={handleConfirmSettle}
+                disabled={confirming}
+              >
+                {confirming ? <Spinner /> : <><CheckIcon style={{ width: 15, height: 15 }} /> Yes, I received it</>}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       <BottomNav />
     </div>
   );
@@ -683,17 +802,19 @@ function BalancePill({ color, bg, label, value }) {
   );
 }
 
-function SettlementRow({ s, myId, isLoading, onSettle }) {
+function SettlementRow({ s, myId, isLoading, isPending, onSettle }) {
   const iAmPayer = s.fromId === myId;
   const iAmPayee = s.toId   === myId;
+
   return (
     <div
       className="settlement-row"
       style={{
-        background: iAmPayer ? 'rgba(253,108,0,0.05)' : iAmPayee ? 'rgba(21,128,61,0.05)' : 'var(--surface-container-low)',
-        border: '1.5px solid',
-        borderColor: iAmPayer ? 'rgba(253,108,0,0.2)' : iAmPayee ? 'rgba(21,128,61,0.2)' : 'var(--surface-container-high)',
+        background:   iAmPayer ? 'rgba(253,108,0,0.05)' : iAmPayee ? 'rgba(21,128,61,0.05)' : 'var(--surface-container-low)',
+        border:       '1.5px solid',
+        borderColor:  iAmPayer ? 'rgba(253,108,0,0.2)'  : iAmPayee ? 'rgba(21,128,61,0.2)'  : 'var(--surface-container-high)',
         borderRadius: 16,
+        opacity:      isPending ? 0.55 : 1,
       }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -707,11 +828,19 @@ function SettlementRow({ s, myId, isLoading, onSettle }) {
           </span>
         </div>
         <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: 'var(--on-surface-variant)', fontWeight: 500 }}>
-          {iAmPayer ? 'you need to pay this' : iAmPayee ? 'you will receive this' : 'pending settlement'}
+          {isPending
+            ? 'Waiting for recipient to confirm…'
+            : iAmPayer
+              ? 'you need to pay this — click Settle to send a request'
+              : iAmPayee
+                ? 'you will receive this'
+                : 'transfer required'}
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        {iAmPayer && (
+        {/* Debtor sees "Settle" unless already pending; payee sees nothing here
+            (their action is in the PendingSettlementRow at the top of the tab) */}
+        {iAmPayer && !isPending && (
           <button
             onClick={onSettle}
             disabled={isLoading}
@@ -723,7 +852,7 @@ function SettlementRow({ s, myId, isLoading, onSettle }) {
               display: 'flex', alignItems: 'center', gap: 6,
             }}
           >
-            {isLoading ? <Spinner /> : (<><CheckIcon style={{ width: 14, height: 14 }} />Settle</>)}
+            {isLoading ? <Spinner /> : <><CheckIcon style={{ width: 14, height: 14 }} />Settle</>}
           </button>
         )}
         <div style={{
@@ -732,6 +861,80 @@ function SettlementRow({ s, myId, isLoading, onSettle }) {
         }}>
           ₹{Math.round(s.amount).toLocaleString('en-IN')}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* Shown at the top of the Balances tab for in-flight (unconfirmed) settlements.
+   Debtor sees "Awaiting confirmation" + a Cancel option.
+   Creditor sees "Confirm receipt" + a Cancel option. */
+function PendingSettlementRow({ ps, myId, onConfirm, onCancel }) {
+  const iAmDebtor   = ps.fromId === myId;  // I initiated this
+  const iAmCreditor = ps.toId   === myId;  // I need to confirm
+
+  return (
+    <div
+      style={{
+        background:   iAmCreditor ? 'rgba(21,128,61,0.07)' : 'rgba(253,108,0,0.05)',
+        border:       '1.5px solid',
+        borderColor:  iAmCreditor ? 'rgba(21,128,61,0.3)'  : 'rgba(253,108,0,0.25)',
+        borderRadius: 16,
+        padding:      '14px 16px',
+        display:      'flex',
+        justifyContent: 'space-between',
+        alignItems:   'center',
+        gap:          12,
+        flexWrap:     'wrap',
+      }}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: iAmDebtor ? 'var(--secondary-container)' : 'var(--on-surface)' }}>
+            {ps.from}{iAmDebtor ? ' (you)' : ''}
+          </span>
+          <ArrowRightIcon style={{ width: 13, height: 13, color: 'var(--outline)' }} />
+          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: iAmCreditor ? '#15803d' : 'var(--on-surface)' }}>
+            {ps.to}{iAmCreditor ? ' (you)' : ''}
+          </span>
+          <span style={{ fontFamily: "'Be Vietnam Pro', sans-serif", fontWeight: 800, fontSize: 16, letterSpacing: '-0.02em', color: iAmCreditor ? '#15803d' : 'var(--on-surface)' }}>
+            · ₹{Math.round(ps.amount).toLocaleString('en-IN')}
+          </span>
+        </div>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: 'var(--on-surface-variant)' }}>
+          {iAmCreditor
+            ? '✋ Confirm you received this payment'
+            : '⏳ Waiting for recipient to confirm receipt'}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+        {/* Creditor gets the "Yes, received" confirmation button */}
+        {iAmCreditor && (
+          <button
+            onClick={onConfirm}
+            style={{
+              padding: '7px 16px', borderRadius: 12,
+              border: '1.5px solid #15803d', background: 'rgba(21,128,61,0.1)', color: '#15803d',
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            <CheckIcon style={{ width: 13, height: 13 }} />
+            Confirm
+          </button>
+        )}
+        {/* Either party can cancel */}
+        <button
+          onClick={onCancel}
+          style={{
+            padding: '7px 12px', borderRadius: 12,
+            border: '1.5px solid var(--outline-variant)', background: 'transparent', color: 'var(--on-surface-variant)',
+            fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12,
+            cursor: 'pointer',
+          }}
+        >
+          Cancel
+        </button>
       </div>
     </div>
   );

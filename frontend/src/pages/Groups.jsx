@@ -220,7 +220,7 @@ export default function Groups() {
               <Spinner />
             </div>
           ) : filtered.length === 0 ? (
-            <EmptyState icon="◈" text="No groups yet. Create or join one above." />
+            <EmptyState icon={<UserGroupIcon style={{ width: 32, height: 32, color: 'var(--on-surface-variant)' }} />} text="No groups yet. Create or join one above." />
           ) : (
             <div className="groups-grid">
               {filtered.map(g => (

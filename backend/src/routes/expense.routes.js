@@ -5,7 +5,10 @@ import {
     getExpensesForUser,
     deleteExpense,
     settleExpense,
-    getGroupSummary
+    getGroupSummary,
+    initiateSettlement, // NEW
+    confirmSettlement,  // NEW
+    cancelSettlement    // NEW
 } from '../controllers/expense.controller.js';
 import authenticateUser from '../middlewares/auth.middleware.js';
 
@@ -18,6 +21,11 @@ router.get('/:groupId/expenses', getExpensesForGroup);
 router.get('/my-expenses', getExpensesForUser);
 router.get('/:groupId/summary', getGroupSummary);
 router.delete('/:expenseId', deleteExpense);
-router.patch('/:expenseId/settle', settleExpense);   // NEW
+router.patch('/:expenseId/settle', settleExpense);
+
+// --- NEW SETTLEMENT ROUTES ---
+router.post('/:groupId/initiate-settlement', initiateSettlement);
+router.post('/:groupId/confirm-settlement', confirmSettlement);
+router.delete('/:groupId/cancel-settlement', cancelSettlement);
 
 export default router;
