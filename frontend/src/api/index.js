@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE = 'https://split-lytest.onrender.com';
+const BASE = 'http://localhost:5000/api/v1.0.0';
 
 const api = axios.create({ baseURL: BASE, withCredentials: true });
 
