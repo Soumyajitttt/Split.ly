@@ -1,12 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Nav from '../components/layout/Nav';
 import Sidebar from '../components/layout/Sidebar';
 import BottomNav from '../components/layout/BottomNav';
 import { Spinner } from '../components/ui';
-import { getMyGroups, getMyExpenses, getGroupSummary } from '../api';
+import { getGroupSummary } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useDataCache } from '../context/DataCache';
 import {
   ArrowLeftIcon,
   EyeIcon,
@@ -102,7 +103,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const showToast = useToast();
-  const hasFetched = useRef(false);
+  const { fetchGroups, fetchMyExpenses } = useDataCache();
 
   const [groups, setGroups] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -111,33 +112,36 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (hasFetched.current) return;
-    hasFetched.current = true;
+    let cancelled = false;
 
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [gRes, eRes] = await Promise.all([getMyGroups(), getMyExpenses()]);
-        const gs = gRes.data.groups || [];
+        // Returns cached data instantly on revisit, fetches only when stale
+        const [gs, exps] = await Promise.all([fetchGroups(), fetchMyExpenses()]);
+        if (cancelled) return;
+
         setGroups(gs);
-        setExpenses(eRes.data.expenses || []);
+        setExpenses(exps);
 
         const summaries = {};
-        for (const g of gs) {
+        await Promise.all(gs.map(async g => {
           try {
             const sRes = await getGroupSummary(g._id);
             summaries[g._id] = sRes.data;
           } catch {}
-        }
-        setGroupSummaries(summaries);
+        }));
+        if (!cancelled) setGroupSummaries(summaries);
       } catch {
-        showToast('Failed to load dashboard');
+        if (!cancelled) showToast('Failed to load dashboard');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
+
     fetchData();
-  }, []);
+    return () => { cancelled = true; };
+  }, [fetchGroups, fetchMyExpenses]);
 
   const totalOwe  = expenses.filter(e => e.status === 'PENDING').reduce((s, e) => s + (e.youOwe || 0), 0);
   const totalOwed = expenses.filter(e => e.status === 'YOU PAID').reduce((s, e) => s + (e.othersOweYou || 0), 0);

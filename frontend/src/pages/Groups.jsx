@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import Nav from '../components/layout/Nav';
 import Sidebar from '../components/layout/Sidebar';
 import BottomNav from '../components/layout/BottomNav';
-import { Modal, Input, FormGroup, EmptyState, Spinner } from '../components/ui';
-import { getMyGroups, createGroup, joinGroup } from '../api';
+import { Modal, EmptyState, Spinner } from '../components/ui';
+import { createGroup, joinGroup } from '../api';
 import { useToast } from '../context/ToastContext';
+import { useDataCache } from '../context/DataCache';
 import {
   PlusIcon,
   ArrowRightEndOnRectangleIcon,
@@ -19,21 +20,13 @@ function GroupCard({ group, onClick }) {
   return (
     <div className="card" onClick={onClick}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-        {/* Avatar-style group icon */}
         <div
           style={{
-            width: 44,
-            height: 44,
-            borderRadius: 14,
+            width: 44, height: 44, borderRadius: 14,
             background: 'var(--primary-fixed)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontFamily: "'Be Vietnam Pro', sans-serif",
-            fontWeight: 800,
-            fontSize: 18,
-            color: 'var(--primary)',
-            flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: "'Be Vietnam Pro', sans-serif", fontWeight: 800, fontSize: 18,
+            color: 'var(--primary)', flexShrink: 0,
           }}
         >
           {group.name[0]}
@@ -48,14 +41,9 @@ function GroupCard({ group, onClick }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 14 }}>
         <span
           style={{
-            fontFamily: "'Plus Jakarta Sans', sans-serif",
-            fontSize: 11,
-            fontWeight: 700,
-            color: 'var(--on-surface-variant)',
-            background: 'var(--surface-container-low)',
-            padding: '4px 10px',
-            borderRadius: 8,
-            letterSpacing: '0.08em',
+            fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
+            color: 'var(--on-surface-variant)', background: 'var(--surface-container-low)',
+            padding: '4px 10px', borderRadius: 8, letterSpacing: '0.08em',
           }}
         >
           {group.groupcode}
@@ -73,6 +61,7 @@ function GroupCard({ group, onClick }) {
 export default function Groups() {
   const navigate = useNavigate();
   const showToast = useToast();
+  const { fetchGroups, invalidateGroups, addGroupToCache } = useDataCache();
 
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -88,19 +77,16 @@ export default function Groups() {
   const [joinCode, setJoinCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchGroups = async () => {
+  // Load from cache (or network on first visit / after invalidation)
+  useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    try {
-      const { data } = await getMyGroups();
-      setGroups(data.groups || []);
-    } catch {
-      showToast('Failed to load groups');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { fetchGroups(); }, []);
+    fetchGroups()
+      .then(gs => { if (!cancelled) setGroups(gs); })
+      .catch(() => { if (!cancelled) showToast('Failed to load groups'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [fetchGroups]);
 
   const handleCreate = async () => {
     if (!newName.trim()) { showToast('Group name required'); return; }
@@ -108,6 +94,8 @@ export default function Groups() {
     try {
       const { data } = await createGroup({ name: newName, description: newDesc });
       if (data.success) {
+        // Optimistically prepend to local state + cache
+        addGroupToCache(data.group);
         setGroups(gs => [data.group, ...gs]);
         setCreateModal(false);
         setNewName(''); setNewDesc('');
@@ -126,6 +114,8 @@ export default function Groups() {
     try {
       const { data } = await joinGroup({ groupcode: joinCode.trim().toUpperCase() });
       if (data.success) {
+        // Optimistically prepend and update cache
+        addGroupToCache(data.group);
         setGroups(gs => [data.group, ...gs]);
         setJoinModal(false);
         setJoinCode('');
@@ -148,14 +138,12 @@ export default function Groups() {
       <Nav
         showMenu
         onMenuClick={() => setSidebarOpen(true)}
-        actions={<button
-            className="btn btn-ghost btn-sm"
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-            onClick={() => navigate('/')}
-          >
+        actions={
+          <button className="btn btn-ghost btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => navigate('/')}>
             <ArrowLeftIcon style={{ width: 15, height: 15 }} />
             Home
-          </button>}
+          </button>
+        }
       />
       <div className="app-layout">
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
@@ -166,25 +154,17 @@ export default function Groups() {
               <div className="page-sub">Your expense circles</div>
             </div>
             <div className="new-menu-wrapper">
-              <button
-                className="btn btn-primary"
-                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-                onClick={() => setShowMenu(!showMenu)}
-              >
+              <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => setShowMenu(!showMenu)}>
                 <PlusIcon style={{ width: 16, height: 16 }} />
                 New
               </button>
               {showMenu && (
                 <div className="new-menu">
-                  <div className="new-menu-item" onClick={() => { setJoinModal(true); setShowMenu(false); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-                  >
+                  <div className="new-menu-item" onClick={() => { setJoinModal(true); setShowMenu(false); }} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <ArrowRightEndOnRectangleIcon style={{ width: 16, height: 16 }} />
                     Join Group
                   </div>
-                  <div className="new-menu-item" onClick={() => { setCreateModal(true); setShowMenu(false); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-                  >
+                  <div className="new-menu-item" onClick={() => { setCreateModal(true); setShowMenu(false); }} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <UserGroupIcon style={{ width: 16, height: 16 }} />
                     Create Group
                   </div>
@@ -195,16 +175,7 @@ export default function Groups() {
 
           <div className="search-bar" style={{ position: 'relative' }}>
             <MagnifyingGlassIcon
-              style={{
-                position: 'absolute',
-                left: 14,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                width: 16,
-                height: 16,
-                color: 'var(--on-surface-variant)',
-                pointerEvents: 'none',
-              }}
+              style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: 'var(--on-surface-variant)', pointerEvents: 'none' }}
             />
             <input
               className="input-field"
@@ -216,9 +187,7 @@ export default function Groups() {
           </div>
 
           {loading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
-              <Spinner />
-            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><Spinner /></div>
           ) : filtered.length === 0 ? (
             <EmptyState icon={<UserGroupIcon style={{ width: 32, height: 32, color: 'var(--on-surface-variant)' }} />} text="No groups yet. Create or join one above." />
           ) : (
