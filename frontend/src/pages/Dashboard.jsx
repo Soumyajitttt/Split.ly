@@ -423,9 +423,9 @@ export default function Dashboard() {
                         <div style={{ fontFamily: "'Be Vietnam Pro', sans-serif", fontSize: 32, fontWeight: 800, letterSpacing: '-0.03em', margin: '8px 0 4px', color: 'var(--on-surface)' }}>
                           ₹{(s?.totalExpense || 0).toLocaleString('en-IN')}
                         </div>
-                        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: 'var(--on-surface-variant)', marginBottom: 14, fontWeight: 600 }}>
+                        {/* <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: 'var(--on-surface-variant)', marginBottom: 14, fontWeight: 600 }}>
                           Code: {g.groupcode}
-                        </div>
+                        </div> */}
                         <div className="sparkline-row">
                           {sparks.map((h, j) => (
                             <div
