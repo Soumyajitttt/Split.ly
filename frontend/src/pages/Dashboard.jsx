@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Nav from '../components/layout/Nav';
 import Sidebar from '../components/layout/Sidebar';
 import BottomNav from '../components/layout/BottomNav';
 import { Spinner } from '../components/ui';
-import { getGroupSummary } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useDataCache } from '../context/DataCache';
@@ -103,7 +102,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const showToast = useToast();
-  const { fetchGroups, fetchMyExpenses } = useDataCache();
+  const { fetchGroups, fetchMyExpenses, fetchAllSummaries } = useDataCache();
 
   const [groups, setGroups] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -115,33 +114,43 @@ export default function Dashboard() {
     let cancelled = false;
 
     const fetchData = async () => {
-      setLoading(true);
       try {
-        // Returns cached data instantly on revisit, fetches only when stale
+        // Step 1: get groups + expenses from cache (instant on revisit)
         const [gs, exps] = await Promise.all([fetchGroups(), fetchMyExpenses()]);
         if (cancelled) return;
-
         setGroups(gs);
         setExpenses(exps);
 
-        const summaries = {};
-        await Promise.all(gs.map(async g => {
-          try {
-            const sRes = await getGroupSummary(g._id);
-            summaries[g._id] = sRes.data;
-          } catch {}
-        }));
-        if (!cancelled) setGroupSummaries(summaries);
+        // Step 2: get whatever summaries are cached right now — render immediately
+        const { summaries: cachedSummaries, refreshPromise } = await fetchAllSummaries(gs);
+        if (cancelled) return;
+        setGroupSummaries(cachedSummaries);
+        setLoading(false); // ← show the page now with cached data
+
+        // Step 3: when stale summaries finish refreshing in the background, update quietly
+        refreshPromise.then(() => {
+          if (cancelled) return;
+          const fresh = {};
+          gs.forEach(g => {
+            // pull from cache which refreshPromise just populated
+            fresh[g._id] = cachedSummaries[g._id];
+          });
+          // re-read updated cache entries
+          fetchAllSummaries(gs).then(({ summaries }) => {
+            if (!cancelled) setGroupSummaries(summaries);
+          });
+        });
       } catch {
-        if (!cancelled) showToast('Failed to load dashboard');
-      } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          showToast('Failed to load dashboard');
+          setLoading(false);
+        }
       }
     };
 
     fetchData();
     return () => { cancelled = true; };
-  }, [fetchGroups, fetchMyExpenses]);
+  }, [fetchGroups, fetchMyExpenses, fetchAllSummaries]);
 
   const totalOwe  = expenses.filter(e => e.status === 'PENDING').reduce((s, e) => s + (e.youOwe || 0), 0);
   const totalOwed = expenses.filter(e => e.status === 'YOU PAID').reduce((s, e) => s + (e.othersOweYou || 0), 0);
@@ -423,9 +432,9 @@ export default function Dashboard() {
                         <div style={{ fontFamily: "'Be Vietnam Pro', sans-serif", fontSize: 32, fontWeight: 800, letterSpacing: '-0.03em', margin: '8px 0 4px', color: 'var(--on-surface)' }}>
                           ₹{(s?.totalExpense || 0).toLocaleString('en-IN')}
                         </div>
-                        {/* <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: 'var(--on-surface-variant)', marginBottom: 14, fontWeight: 600 }}>
+                        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: 'var(--on-surface-variant)', marginBottom: 14, fontWeight: 600 }}>
                           Code: {g.groupcode}
-                        </div> */}
+                        </div>
                         <div className="sparkline-row">
                           {sparks.map((h, j) => (
                             <div

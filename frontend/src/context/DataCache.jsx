@@ -1,57 +1,33 @@
-/**
- * DataCache.jsx  –  context/DataCache.jsx
- *
- * A shared, in-memory cache for groups, per-group expenses, and summaries.
- * Pages read from the cache on first render (instant) and only hit the
- * network when the data is genuinely stale or explicitly invalidated.
- *
- * Usage
- * ─────
- * 1. Wrap your router with <DataCacheProvider>
- * 2. In any page:
- *      const { groups, invalidateGroups, getGroupData, invalidateGroup } = useDataCache();
- *
- * Cache TTL
- * ─────────
- * Groups list   → 60 s
- * Group detail  → 30 s  (expenses + summary)
- * Dashboard expenses → 60 s
- *
- * Call invalidate* after any mutation to force the next read to re-fetch.
- */
-
 import { createContext, useContext, useRef, useCallback } from 'react';
 import { getMyGroups, getMyExpenses, getGroupDetails, getGroupExpenses, getGroupSummary } from '../api';
 
-// ─── TTLs (ms) ────────────────────────────────────────────────────────────────
 const GROUPS_TTL   = 60_000;
 const GROUP_TTL    = 30_000;
 const EXPENSES_TTL = 60_000;
+const SUMMARY_TTL  = 30_000;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 function isStale(entry, ttl) {
   return !entry || Date.now() - entry.ts > ttl;
 }
 
-// ─── Context ──────────────────────────────────────────────────────────────────
 const DataCacheCtx = createContext(null);
 
 export function DataCacheProvider({ children }) {
-  // All cache lives in a ref so updates never trigger re-renders by themselves.
   const cache = useRef({
-    groups:       null,   // { ts, data: Group[] }
-    expenses:     null,   // { ts, data: Expense[] }   (dashboard / my expenses)
-    groupDetail:  {},     // { [groupId]: { ts, group, expenses, summary } }
-  });
-
-  // In-flight promise deduplication — prevents parallel identical fetches
-  const inflight = useRef({
     groups:      null,
     expenses:    null,
+    summaries:   {},   // ← NEW: { [groupId]: { ts, data } }
     groupDetail: {},
   });
 
-  // ── Groups list ─────────────────────────────────────────────────────────────
+  const inflight = useRef({
+    groups:      null,
+    expenses:    null,
+    summaries:   {},   // ← NEW
+    groupDetail: {},
+  });
+
+  // ── Groups ───────────────────────────────────────────────────────────────────
   const fetchGroups = useCallback(async ({ force = false } = {}) => {
     if (!force && !isStale(cache.current.groups, GROUPS_TTL)) {
       return cache.current.groups.data;
@@ -76,7 +52,7 @@ export function DataCacheProvider({ children }) {
     cache.current.groups = null;
   }, []);
 
-  // ── My expenses (dashboard) ─────────────────────────────────────────────────
+  // ── My expenses ──────────────────────────────────────────────────────────────
   const fetchMyExpenses = useCallback(async ({ force = false } = {}) => {
     if (!force && !isStale(cache.current.expenses, EXPENSES_TTL)) {
       return cache.current.expenses.data;
@@ -101,7 +77,58 @@ export function DataCacheProvider({ children }) {
     cache.current.expenses = null;
   }, []);
 
-  // ── Group detail (group + expenses + summary) ───────────────────────────────
+  // ── Per-group summary ────────────────────────────────────────────────────────
+  const fetchSummary = useCallback(async (groupId, { force = false } = {}) => {
+    const entry = cache.current.summaries[groupId];
+    if (!force && !isStale(entry, SUMMARY_TTL)) return entry.data;
+    if (inflight.current.summaries[groupId]) return inflight.current.summaries[groupId];
+
+    inflight.current.summaries[groupId] = (async () => {
+      try {
+        const { data } = await getGroupSummary(groupId);
+        cache.current.summaries[groupId] = { ts: Date.now(), data };
+        return data;
+      } finally {
+        delete inflight.current.summaries[groupId];
+      }
+    })();
+
+    return inflight.current.summaries[groupId];
+  }, []);
+
+  // ── All summaries — stale-while-revalidate ───────────────────────────────────
+  // Returns cached data instantly + a refreshPromise for stale entries.
+  const fetchAllSummaries = useCallback(async (groups, { force = false } = {}) => {
+    const cached = {};
+    const toFetch = [];
+
+    for (const g of groups) {
+      const entry = cache.current.summaries[g._id];
+      if (!force && !isStale(entry, SUMMARY_TTL)) {
+        cached[g._id] = entry.data;
+      } else {
+        cached[g._id] = entry?.data || null; // serve stale immediately
+        toFetch.push(g._id);
+      }
+    }
+
+    // Fire stale fetches in parallel without blocking
+    const refreshPromise = toFetch.length > 0
+      ? Promise.all(toFetch.map(id => fetchSummary(id, { force: true }).catch(() => null)))
+          .then(() => {
+            // return freshly populated cache after all settle
+            const fresh = {};
+            groups.forEach(g => {
+              fresh[g._id] = cache.current.summaries[g._id]?.data || null;
+            });
+            return fresh;
+          })
+      : Promise.resolve(cached);
+
+    return { summaries: cached, refreshPromise };
+  }, [fetchSummary]);
+
+  // ── Group detail ─────────────────────────────────────────────────────────────
   const fetchGroupData = useCallback(async (groupId, { force = false } = {}) => {
     const entry = cache.current.groupDetail[groupId];
     if (!force && !isStale(entry, GROUP_TTL)) {
@@ -124,6 +151,8 @@ export function DataCacheProvider({ children }) {
           summary:  sRes.data,
         };
         cache.current.groupDetail[groupId] = { ts: Date.now(), ...result };
+        // Populate summary cache so Dashboard benefits on next visit
+        cache.current.summaries[groupId] = { ts: Date.now(), data: sRes.data };
         return result;
       } finally {
         delete inflight.current.groupDetail[groupId];
@@ -135,15 +164,13 @@ export function DataCacheProvider({ children }) {
 
   const invalidateGroup = useCallback((groupId) => {
     delete cache.current.groupDetail[groupId];
+    delete cache.current.summaries[groupId];
   }, []);
 
-  // Invalidate everything (e.g. on logout)
   const invalidateAll = useCallback(() => {
-    cache.current = { groups: null, expenses: null, groupDetail: {} };
+    cache.current = { groups: null, expenses: null, summaries: {}, groupDetail: {} };
   }, []);
 
-  // Optimistic patch helpers — update cache without re-fetching ─────────────
-  // Add a new group to the cached list
   const addGroupToCache = useCallback((group) => {
     if (cache.current.groups) {
       cache.current.groups = {
@@ -158,6 +185,8 @@ export function DataCacheProvider({ children }) {
     invalidateGroups,
     fetchMyExpenses,
     invalidateMyExpenses,
+    fetchSummary,
+    fetchAllSummaries,
     fetchGroupData,
     invalidateGroup,
     invalidateAll,
