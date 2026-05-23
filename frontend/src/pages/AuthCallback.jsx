@@ -15,6 +15,11 @@ export default function AuthCallback() {
     const userStr = params.get('user');
     const error = params.get('error');
 
+    console.log('Full URL:', window.location.href);
+    console.log('Token:', token);
+    console.log('User:', userStr);
+    console.log('Error:', error);
+
     if (error) {
       showToast('Google sign-in failed. Please try again.');
       navigate('/login');
