@@ -1562,3 +1562,10 @@ input[type=number].no-spinner::-webkit-outer-spin-button {
   margin: 0;
 }
 input[type=number].no-spinner { -moz-appearance: textfield; appearance: textfield; }
+
+@layer base {
+  ::selection {
+    background-color: #cacaca;
+    color: rgb(0, 0, 0);              
+  }
+}
