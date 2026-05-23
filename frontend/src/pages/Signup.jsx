@@ -56,7 +56,7 @@ export default function Signup() {
             onClick={() => navigate('/login')}
           >
             <ArrowLeftIcon style={{ width: 15, height: 15 }} />
-            Sign In
+            Snehashish Chodna
           </button>
         }
       />
