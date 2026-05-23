@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Nav from '../components/layout/Nav';
 import Footer from '../components/layout/Footer';
@@ -115,6 +115,7 @@ export default function Landing() {
   const showToast = useToast();
   const { user, logout } = useAuth();
   const whyRef = useRef(null);
+  const [showDropdown, setShowDropdown] = useState(false);
 
   const scrollToWhy = () => whyRef.current?.scrollIntoView({ behavior: 'smooth' });
 
@@ -130,35 +131,100 @@ export default function Landing() {
   const initials = user?.fullname?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || 'U';
   const AVATAR_COLORS = ['#e53935','#d81b60','#8e24aa','#5e35b1','#1e88e5','#00897b','#43a047','#fb8c00','#6d4c41','#039be5'];
   const avatarBg = AVATAR_COLORS[(user?.username || user?.fullname || 'U').charCodeAt(0) % AVATAR_COLORS.length];
-  const AvatarEl = ({ className = 'sidebar-avatar' }) => user?.avatar
-  ? <img src={user.avatar} alt={initials} referrerPolicy="no-referrer" className={className} style={{ objectFit: 'cover' }} />
-  : <span className={className} style={{ background: avatarBg, fontFamily: "'Google Sans','Plus Jakarta Sans',sans-serif", fontSize: 16, fontWeight: 500, letterSpacing: 0, color: 'white' }}>{initials}</span>;
 
+  const AvatarEl = ({ className = 'sidebar-avatar' }) => {
+    const img = user?.avatar
+      ? <img src={user.avatar} alt={initials} referrerPolicy="no-referrer" className={className} style={{ objectFit: 'cover' }} />
+      : <span className={className} style={{ background: avatarBg, fontFamily: "'Google Sans','Plus Jakarta Sans',sans-serif", fontSize: 16, fontWeight: 500, letterSpacing: 0, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{initials}</span>;
+
+    return (
+      <div style={{ position: 'relative' }}>
+        <div
+          onClick={() => setShowDropdown(p => !p)}
+          style={{ cursor: 'pointer', borderRadius: '50%', display: 'flex' }}
+        >
+          {img}
+        </div>
+        {showDropdown && (
+          <>
+            <div
+              onClick={() => setShowDropdown(false)}
+              style={{ position: 'fixed', inset: 0, zIndex: 99 }}
+            />
+            <div style={{
+              position: 'absolute',
+              top: 'calc(100% + 10px)',
+              right: 0,
+              zIndex: 100,
+              background: 'var(--surface, #fff)',
+              border: '1px solid var(--outline-variant, #e0ddd6)',
+              borderRadius: 16,
+              boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+              minWidth: 210,
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                padding: '14px 16px',
+                borderBottom: '1px solid var(--outline-variant, #e0ddd6)',
+              }}>
+                <div style={{ fontFamily: "'Be Vietnam Pro', sans-serif", fontWeight: 700, fontSize: 14, color: 'var(--on-surface)' }}>
+                  {user?.fullname || user?.username}
+                </div>
+                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: 'var(--on-surface-variant)', marginTop: 2 }}>
+                  {user?.email}
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowDropdown(false); handleLogout(); }}
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  background: 'none',
+                  border: 'none',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: '#e53935',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(229,57,53,0.06)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'none'}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e53935" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                  <polyline points="16 17 21 12 16 7"/>
+                  <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+                Log out
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
 
   const navActions = user ? (
     <>
-      <button className="btn btn-ghost btn-sm"  onClick={() => navigate('/groups')}>GROUPS</button>
-      <button className="btn btn-ghost btn-sm"  onClick={() => navigate('/dashboard')}>DASHBOARD</button>
-      {/* <button className="btn btn-primary btn-sm" onClick={handleLogout}>Log Out</button> */}
+      <button className="btn btn-ghost btn-sm" onClick={() => navigate('/groups')}>GROUPS</button>
+      <button className="btn btn-ghost btn-sm" onClick={() => navigate('/dashboard')}>DASHBOARD</button>
       <AvatarEl />
     </>
   ) : (
     <>
-     <button
-  className="btn btn-ghost btn-sm"
-  onClick={() => navigate('/login')}
->
-  LOG IN
-</button>
-
-<button
-  className="btn btn-primary btn-sm"
-  style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-  onClick={() => navigate('/signup')}
->
-  <ArrowRightIcon style={{ width: 15, height: 15, color: '#ffffff' }} />
-  GET STARTED
-</button>
+      <button className="btn btn-ghost btn-sm" onClick={() => navigate('/login')}>LOG IN</button>
+      <button
+        className="btn btn-primary btn-sm"
+        style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+        onClick={() => navigate('/signup')}
+      >
+        <ArrowRightIcon style={{ width: 15, height: 15, color: '#ffffff' }} />
+        GET STARTED
+      </button>
     </>
   );
 
@@ -296,7 +362,7 @@ export default function Landing() {
           -webkit-background-clip: text;
           background-clip: text;
           -webkit-text-fill-color: transparent;
-          color: var(--primary); /* fallback */
+          color: var(--primary);
         }
         .hero-sub {
           font-family: 'Plus Jakarta Sans', sans-serif;
@@ -469,7 +535,6 @@ export default function Landing() {
           gap: 32px;
         }
 
-        /* ── Base Minimal Step ── */
         .step-minimal {
           border-top: 2px solid var(--on-surface, #1b1c1c);
           padding: 32px 24px;
@@ -500,7 +565,6 @@ export default function Landing() {
           border-top-color: transparent;
         }
 
-        /* Refined step colors */
         .step-1::before { background: linear-gradient(180deg, #ff8a4a 0%, #ff6b35 100%); }
         .step-2::before { background: linear-gradient(180deg, var(--brand-blue-glow, #2a7dff) 0%, var(--primary, #0056c6) 100%); }
         .step-3::before { background: linear-gradient(180deg, #2a2a2a 0%, #141414 100%); }
@@ -547,7 +611,6 @@ export default function Landing() {
           .how-section { padding: 60px 28px; }
         }
 
-        /* Tinted cards (kept for reference) */
         .step-card-tint {
           border-radius: 32px;
           padding: 48px 36px;
@@ -918,7 +981,6 @@ export default function Landing() {
         }
         .final-btn-white:hover { transform: translateY(-3px); box-shadow: 0 18px 44px rgba(0,0,0,0.20); }
 
-
         @media (max-width: 900px) {
           .hero-split { flex-direction: column; }
           .hero-left { padding: 56px 28px; }
@@ -935,7 +997,6 @@ export default function Landing() {
 
       {/* ── HERO ──────────────────────────────────────────────────────── */}
       <div className="hero-split">
-        {/* Left */}
         <div className="hero-left">
           <div className="hero-left-inner">
             <div className="hero-eyebrow-pill">
@@ -974,15 +1035,12 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* Right – orange */}
         <div className="hero-right">
           <DotPattern
             color="rgba(255,255,255,0.18)"
             style={{ inset: 0, width: '100%', height: '100%' }}
           />
-
           <div className="hero-right-inner">
-            {/* Floating receipt card */}
             <div className="receipt-card">
               <div className="receipt-icon-wrap">
                 <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -997,10 +1055,8 @@ export default function Landing() {
               </div>
             </div>
 
-            {/* Central card */}
             <div className="central-card">
               <div className="friend-grid">
-                {/* Row 1 */}
                 <div className="friend-cell" style={{ background: 'rgba(0,86,198,0.15)' }}>
                   <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="14" r="7" fill="var(--primary)" fillOpacity="0.7"/><ellipse cx="18" cy="30" rx="12" ry="7" fill="var(--primary)" fillOpacity="0.4"/></svg>
                 </div>
@@ -1008,7 +1064,6 @@ export default function Landing() {
                   <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 3l2.5 8H24l-6.5 4.7 2.5 8L14 19l-6 4.7 2.5-8L4 11h7.5z" fill="#ff6b35"/></svg>
                 </div>
                 <div className="friend-cell" style={{ background: 'var(--surface-container-highest, #e8e6e3)' }} />
-                {/* Row 2 */}
                 <div className="friend-cell" style={{ background: 'var(--surface-container-highest, #e8e6e3)' }} />
                 <div className="friend-cell" style={{ background: 'var(--primary)', color: '#fff' }}>
                   <span style={{ fontFamily: "'Be Vietnam Pro', sans-serif", fontWeight: 900, fontSize: 20 }}>+12</span>
@@ -1017,7 +1072,6 @@ export default function Landing() {
               </div>
             </div>
 
-            {/* Tagline */}
             <div className="better-with">
               <h2>Better with<br />Friends.</h2>
             </div>
@@ -1025,38 +1079,30 @@ export default function Landing() {
         </div>
       </div>
 
-{/* ── HOW IT WORKS (EDITORIAL / TYPOGRAPHIC) ──────────────────── */}
+      {/* ── HOW IT WORKS ──────────────────────────────────────────────── */}
       <div className="how-section" ref={whyRef}>
         <div className="how-inner">
-
           <div className="how-header-minimal">
             <h2 className="how-heading">Simple as 1-2-3.</h2>
             <p className="how-desc-minimal">No tutorials. No onboarding. Just pure efficiency.</p>
           </div>
-
           <div className="steps-minimal-grid">
-            {/* Step 1 */}
             <div className="step-minimal step-1">
               <div className="step-minimal-number">01</div>
               <h3 className="step-minimal-title">Create</h3>
               <p className="step-minimal-desc">Start a group for your hostel mates, travel squad, or dinner party in seconds.</p>
             </div>
-
-            {/* Step 2 */}
             <div className="step-minimal step-2">
               <div className="step-minimal-number">02</div>
               <h3 className="step-minimal-title">Log</h3>
               <p className="step-minimal-desc">Add expenses instantly. Note who paid and who it's split with — Split.ly handles the arithmetic.</p>
             </div>
-
-            {/* Step 3 */}
             <div className="step-minimal step-3">
               <div className="step-minimal-number">03</div>
               <h3 className="step-minimal-title">Settle</h3>
               <p className="step-minimal-desc">Our algorithm finds the minimum payments needed. One tap marks it done.</p>
             </div>
           </div>
-
         </div>
       </div>
 
@@ -1069,21 +1115,18 @@ export default function Landing() {
         </div>
       </div>
 
-      {/* ── BUILT FOR REAL LIFE (BENTO) ──────────────────────────────── */}
+      {/* ── BENTO ──────────────────────────────────────────────────────── */}
       <div className="bento-section">
         <DotPattern
           color="rgba(255,255,255,0.04)"
           style={{ top: 0, right: 0, width: '40%', height: '100%' }}
         />
-
         <div className="bento-inner">
           <div className="bento-header">
             <h2 className="bento-heading">Built for real life.</h2>
             <p className="bento-subhead">Precision tools wrapped in a playful experience.</p>
           </div>
-
           <div className="bento-grid">
-            {/* Large blue card */}
             <div className="bento-card bento-large" style={{ background: 'linear-gradient(135deg, var(--primary) 0%, #1148a8 100%)' }}>
               <div style={{ position: 'absolute', top: 0, right: 0, padding: 40, opacity: 0.15 }}>
                 <svg width="200" height="200" viewBox="0 0 200 200" fill="none">
@@ -1110,7 +1153,6 @@ export default function Landing() {
               </div>
             </div>
 
-            {/* Small orange card */}
             <div className="bento-card bento-small" style={{ background: 'linear-gradient(135deg, #ff8a4a 0%, #ff6b35 60%, #e85a28 100%)', position: 'relative' }}>
               <DotPattern
                 color="rgba(255,255,255,0.12)"
@@ -1143,7 +1185,6 @@ export default function Landing() {
               </div>
             </div>
 
-            {/* Mid left – Live Activity */}
             <div className="bento-card bento-mid-left" style={{ background: 'var(--surface-container-highest, #e8e6e3)', color: 'var(--on-surface)' }}>
               <div className="avatar-stack">
                 <div className="avatar-circle" style={{ background: 'var(--primary)' }}>R</div>
@@ -1158,7 +1199,6 @@ export default function Landing() {
               </div>
             </div>
 
-            {/* Mid right – Zero learning curve + debt simplification */}
             <div className="bento-card bento-mid-right" style={{ background: '#fff', color: 'var(--on-surface)' }}>
               <div style={{ flex: 1 }}>
                 <div className="bento-card-title" style={{ color: 'var(--on-surface)' }}>Debt<br />Simplification</div>
