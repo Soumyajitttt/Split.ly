@@ -194,4 +194,8 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 });
 
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken };
+// Health checks
+const healthCheck = (req, res) => res.status(200).json({ status: 'ok' });
+const healthAuthCheck = (req, res) => res.status(200).json({ success: true });
+
+export { registerUser, loginUser, logoutUser, refreshAccessToken, healthCheck, healthAuthCheck };
