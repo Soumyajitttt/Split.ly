@@ -20,7 +20,7 @@ const googleCallback = asyncHandler(async (req, res) => {
     const options = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
     };
 
     // Redirect to frontend with accessToken in query (frontend stores it)
