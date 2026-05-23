@@ -1,7 +1,7 @@
 /**
  * emailService.js
  *
- * Resend-based transactional email service for Split.ly.
+ * Nodemailer + Brevo (smtp-relay.brevo.com) transactional email service for Split.ly.
  *
  * Usage:
  *   import { sendEmail, emailTemplates } from './emailService.js';
@@ -11,22 +11,29 @@
  * failed email never blocks an API response. Errors are logged instead.
  *
  * Environment variables required:
- *   RESEND_API_KEY — from resend.com dashboard
+ *   SMTP_HOST      — smtp-relay.brevo.com
+ *   SMTP_PORT      — 587
+ *   SMTP_USER      — your Brevo account email
+ *   SMTP_PASS      — your Brevo SMTP key (from Brevo dashboard → SMTP & API)
  *   SMTP_FROM_NAME — display name (default: "Split.ly")
  *   APP_URL        — frontend base URL (default: http://localhost:5173)
  */
 
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 
-/* ── Client ──────────────────────────────────────────────────────────────── */
+/* ── Transporter ─────────────────────────────────────────────────────────── */
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const transporter = nodemailer.createTransport({
+    host:   process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+    port:   Number(process.env.SMTP_PORT) || 587,
+    secure: false, // Brevo uses STARTTLS on port 587, not SSL
+    auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+    },
+});
 
-const FROM_NAME = process.env.SMTP_FROM_NAME || 'Split.ly';
-// Use your verified Resend domain here once set up.
-// Until then, onboarding@resend.dev works but only sends to your own email.
-const FROM_ADDRESS = process.env.RESEND_FROM_ADDRESS || 'onboarding@resend.dev';
-const FROM = `${FROM_NAME} <${FROM_ADDRESS}>`;
+const FROM = `"${process.env.SMTP_FROM_NAME || 'Split.ly'}" <${process.env.SMTP_USER}>`;
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 
 /* ── Core send helper ────────────────────────────────────────────────────── */
@@ -36,20 +43,15 @@ const APP_URL = process.env.APP_URL || 'http://localhost:5173';
  * @param {{ to: string, subject: string, html: string }} options
  */
 export const sendEmail = async (options) => {
-    if (!process.env.RESEND_API_KEY) {
-        console.log(`[email] skipped (RESEND_API_KEY not configured) → ${options.subject} → ${options.to}`);
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        console.log(`[email] skipped (SMTP not configured) → ${options.subject} → ${options.to}`);
         return;
     }
     try {
-        await resend.emails.send({
-            from:    FROM,
-            to:      options.to,
-            subject: options.subject,
-            html:    options.html,
-        });
+        await transporter.sendMail({ from: FROM, ...options });
         console.log(`[email] sent → ${options.subject} → ${options.to}`);
     } catch (err) {
-        // Never throw — a broken email must never break an API response
+        // Never throw — a broken SMTP must never break an API response
         console.error(`[email] FAILED → ${options.subject} → ${options.to}`, err.message);
     }
 };
