@@ -1,39 +1,32 @@
 /**
  * emailService.js
  *
- * Nodemailer-based transactional email service for SplitSmart.
+ * Resend-based transactional email service for Split.ly.
  *
  * Usage:
  *   import { sendEmail, emailTemplates } from './emailService.js';
  *   await sendEmail(emailTemplates.settlementRequested({ ... }));
  *
  * All send calls are fire-and-forget — they never throw into the caller so a
- * failed email never blocks an API response.  Errors are logged instead.
+ * failed email never blocks an API response. Errors are logged instead.
  *
  * Environment variables required:
- *   SMTP_HOST      — e.g. smtp.gmail.com
- *   SMTP_PORT      — e.g. 587
- *   SMTP_USER      — sender email address
- *   SMTP_PASS      — app password / SMTP password
- *   SMTP_FROM_NAME — display name (default: "SplitSmart")
+ *   RESEND_API_KEY — from resend.com dashboard
+ *   SMTP_FROM_NAME — display name (default: "Split.ly")
  *   APP_URL        — frontend base URL (default: http://localhost:5173)
  */
 
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
-/* ── Transporter ─────────────────────────────────────────────────────────── */
+/* ── Client ──────────────────────────────────────────────────────────────── */
 
-const transporter = nodemailer.createTransport({
-    host:   process.env.SMTP_HOST || 'smtp.gmail.com',
-    port:   Number(process.env.SMTP_PORT) || 587,
-    secure: Number(process.env.SMTP_PORT) === 465,
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-    },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-const FROM = `"${process.env.SMTP_FROM_NAME || 'Split.ly'}" <${process.env.SMTP_USER}>`;
+const FROM_NAME = process.env.SMTP_FROM_NAME || 'Split.ly';
+// Use your verified Resend domain here once set up.
+// Until then, onboarding@resend.dev works but only sends to your own email.
+const FROM_ADDRESS = process.env.RESEND_FROM_ADDRESS || 'onboarding@resend.dev';
+const FROM = `${FROM_NAME} <${FROM_ADDRESS}>`;
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 
 /* ── Core send helper ────────────────────────────────────────────────────── */
@@ -43,16 +36,20 @@ const APP_URL = process.env.APP_URL || 'http://localhost:5173';
  * @param {{ to: string, subject: string, html: string }} options
  */
 export const sendEmail = async (options) => {
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-        // Email not configured — skip silently in dev
-        console.log(`[email] skipped (SMTP not configured) → ${options.subject} → ${options.to}`);
+    if (!process.env.RESEND_API_KEY) {
+        console.log(`[email] skipped (RESEND_API_KEY not configured) → ${options.subject} → ${options.to}`);
         return;
     }
     try {
-        await transporter.sendMail({ from: FROM, ...options });
+        await resend.emails.send({
+            from:    FROM,
+            to:      options.to,
+            subject: options.subject,
+            html:    options.html,
+        });
         console.log(`[email] sent → ${options.subject} → ${options.to}`);
     } catch (err) {
-        // Never throw — a broken SMTP must never break an API response
+        // Never throw — a broken email must never break an API response
         console.error(`[email] FAILED → ${options.subject} → ${options.to}`, err.message);
     }
 };
