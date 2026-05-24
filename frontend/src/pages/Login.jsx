@@ -40,7 +40,7 @@ export default function Login() {
   };
 
   const handleGoogleAuth = () => {
-    window.location.href = `${BASE}/users/auth/google`;
+    window.location.href = `${import.meta.env.VITE_API_BASE_URL}/users/auth/google`;
   };
 
   return (
