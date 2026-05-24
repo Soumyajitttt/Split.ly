@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
 const AuthContext = createContext(null);
-const BASE = 'https://split-ly-167a.onrender.com/api/v1.0.0';
+const BASE = import.meta.env.VITE_API_BASE_URL;
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);

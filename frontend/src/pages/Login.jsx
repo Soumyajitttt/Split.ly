@@ -40,7 +40,7 @@ export default function Login() {
   };
 
   const handleGoogleAuth = () => {
-    window.location.href = 'https://split-ly-167a.onrender.com/api/v1.0.0/users/auth/google';
+    window.location.href = `${BASE}/users/auth/google`;
   };
 
   return (

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE = 'https://split-ly-167a.onrender.com/api/v1.0.0';
+const BASE = import.meta.env.VITE_API_BASE_URL;
 
 const api = axios.create({ baseURL: BASE, withCredentials: true });
 
