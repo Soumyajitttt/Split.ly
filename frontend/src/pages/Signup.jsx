@@ -42,8 +42,12 @@ export default function Signup() {
     }
   };
 
+  // const handleGoogleAuth = () => {
+  //   window.location.href = '/api/v1.0.0/users/auth/google';
+  // };
+
   const handleGoogleAuth = () => {
-    window.location.href = '/api/v1.0.0/users/auth/google';
+    window.location.href = `${import.meta.env.VITE_API_BASE_URL}/users/auth/google`;
   };
 
   return (
