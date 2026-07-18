@@ -287,12 +287,4 @@ All routes are prefixed with `/api/v1.0.0`.
 | settled | Boolean | `true` when all shares are settled; defaults to `false` |
 | settledAt | Date | Timestamp of full settlement; null until settled |
 
----
-
-## Known Issues
-
-- **`paidby` field casing** — The Expense model defines the field as `paidby` (lowercase), but parts of the codebase may reference it as `paidBy` (camelCase). If populated expense data is missing the payer, check that queries and response serialization consistently use `paidby`.
-- **Google OAuth password requirement** — The User schema marks `password` as required. Google-authenticated users do not supply a password, so the OAuth registration flow must either set a placeholder value or the schema validation must be relaxed for OAuth-sourced documents.
-
----
 
