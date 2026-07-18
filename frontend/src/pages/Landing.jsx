@@ -882,6 +882,7 @@ export default function Landing() {
           border-radius: 22px;
           padding: 26px 26px;
           width: 310px;
+          height: 220px;
           flex-shrink: 0;
           box-shadow: 0 4px 20px rgba(0,0,0,0.06);
           transition: transform 0.2s cubic-bezier(.34,1.56,.64,1), box-shadow 0.2s ease;
@@ -889,6 +890,9 @@ export default function Landing() {
           will-change: transform;
           isolation: isolate;
           border: 1px solid rgba(0,0,0,0.03);
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
         }
         .testimonial-card:hover {
           transform: translateY(-6px) scale(1.02);
@@ -900,6 +904,10 @@ export default function Landing() {
           color: var(--on-surface);
           line-height: 1.65;
           margin: 0 0 18px;
+          display: -webkit-box;
+          -webkit-line-clamp: 4;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
         .testimonial-meta { display: flex; align-items: center; gap: 10px; }
         .testimonial-avatar {
