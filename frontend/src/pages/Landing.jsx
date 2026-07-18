@@ -868,7 +868,8 @@ export default function Landing() {
           overflow: hidden;
           -webkit-mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
           mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
-          padding: 16px 0 24px;
+          padding: 36px 0 44px;
+          margin: -20px 0 -20px;
         }
         .marquee-track {
           display: flex;
