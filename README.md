@@ -25,7 +25,6 @@ Split.ly is a full-stack expense-splitting application built with React and Node
 - [Google OAuth Setup](#google-oauth-setup)
 - [API Reference](#api-reference)
 - [Data Models](#data-models)
-- [Known Issues](#known-issues)
 
 ---
 
