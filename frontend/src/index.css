@@ -730,3 +730,13 @@ input[type=number].no-spinner { -moz-appearance: textfield; appearance: textfiel
   .chat-info { width: 100%; }
   .b-amt { font-size: 24px; }
 }
+
+/* new-data motion: a bubble lands from the composer, the pinned total ticks */
+@keyframes bubbleIn { 0% { opacity: 0; transform: translateY(18px) scale(.94); } 60% { opacity: 1; } 100% { opacity: 1; transform: none; } }
+@keyframes bubbleGlow { 0%, 35% { box-shadow: 0 0 0 3px rgba(42,125,255,.45), 0 1px 1px rgba(17,17,19,.12); } 100% { box-shadow: 0 1px 1px rgba(17,17,19,.12); } }
+@keyframes pinTick { 0% { opacity: 0; transform: translateY(5px); } 100% { opacity: 1; transform: none; } }
+.msg-row.fresh { animation: bubbleIn .5s var(--ease) both; transform-origin: bottom left; }
+.msg-row.mine.fresh { transform-origin: bottom right; }
+.msg-row.fresh .bubble { animation: bubbleGlow 1.4s ease-out both; }
+.chat-note.fresh { animation: bubbleIn .5s var(--ease) both; }
+.pin-title { animation: pinTick .35s var(--ease) both; }

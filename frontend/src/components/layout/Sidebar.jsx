@@ -11,9 +11,6 @@ import {
   Cog6ToothIcon,
   ArrowRightStartOnRectangleIcon,
   XMarkIcon,
-  ChevronDoubleLeftIcon,
-  ChevronDoubleRightIcon,
-  PlusIcon,
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeIconSolid,
@@ -37,7 +34,7 @@ function readStored() {
     const v = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
     return {
       width: Math.min(MAX_W, Math.max(MIN_W, Number(v.width) || DEFAULT_W)),
-      collapsed: !!v.collapsed,
+      collapsed: false, // the collapse toggle was removed; never start in a state with no way out
     };
   } catch {
     return { width: DEFAULT_W, collapsed: false };
@@ -87,8 +84,6 @@ export default function Sidebar({ open, onClose }) {
     lastPos = next;
     return () => tween?.kill();
   }, [location.pathname, groups.length]);
-
-  const toggle = () => setLayout(l => ({ ...l, collapsed: !l.collapsed }));
 
   const startDrag = useCallback((e) => {
     e.preventDefault();
@@ -159,16 +154,6 @@ export default function Sidebar({ open, onClose }) {
           <span className="sidebar-indicator" ref={indRef} />
           <div className="sidebar-top">
             <span className="sidebar-ws">Workspace</span>
-            <button
-              className="sidebar-collapse"
-              onClick={toggle}
-              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            >
-              {collapsed
-                ? <ChevronDoubleRightIcon style={{ width: 16, height: 16 }} />
-                : <ChevronDoubleLeftIcon style={{ width: 16, height: 16 }} />}
-            </button>
           </div>
 
           <div className="sidebar-section">
@@ -194,9 +179,6 @@ export default function Sidebar({ open, onClose }) {
           <div className="sidebar-section">
             <div className="sidebar-label">
               <span>Your groups</span>
-              <button onClick={() => go('/groups')} aria-label="All groups" title="All groups">
-                <PlusIcon style={{ width: 14, height: 14 }} />
-              </button>
             </div>
             {shownGroups.map((g, i) => (
               <div

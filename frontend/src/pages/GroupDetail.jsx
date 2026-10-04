@@ -22,7 +22,6 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   ArrowDownIcon,
-  InformationCircleIcon,
   PaperAirplaneIcon,
   PlusIcon,
   XMarkIcon,
@@ -66,17 +65,29 @@ function parseDraft(text) {
   return { description, amount };
 }
 
-export default function GroupDetail() {
+export default function GroupDetailRoute() {
+  const { groupId } = useParams();
+  return <GroupDetail key={groupId} />;
+}
+
+function GroupDetail() {
   const { groupId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const showToast = useToast();
-  const { fetchGroupData, invalidateGroup, invalidateGroups } = useDataCache();
+  const { fetchGroupData, peekGroupData, invalidateGroups } = useDataCache();
 
-  const [group,    setGroup]    = useState(null);
-  const [expenses, setExpenses] = useState([]);
-  const [summary,  setSummary]  = useState(null);
-  const [loading,  setLoading]  = useState(true);
+  // Paint instantly from the cache when we have it; only show a spinner on a true cold start.
+  const [cached0] = useState(() => peekGroupData(groupId));
+  const [group,    setGroup]    = useState(cached0?.group ?? null);
+  const [expenses, setExpenses] = useState(cached0?.expenses ?? []);
+  const [summary,  setSummary]  = useState(cached0?.summary ?? null);
+  const [loading,  setLoading]  = useState(!cached0);
+  const [freshIds, setFreshIds] = useState(() => new Set());
+  const seenIds = useRef(new Set([
+    ...(cached0?.expenses || []).map(e => e._id),
+    ...(cached0?.summary?.pendingSettlements || []).map(p => p._id),
+  ]));
   const [activeTab, setActiveTab] = useState('balances');
   const [tabSwitched, setTabSwitched] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -98,27 +109,49 @@ export default function GroupDetail() {
   const scrollRef = useRef(null);
   const firstScroll = useRef(true);
 
-  // Load from cache; only hits network when cache is empty or stale
+  // Cache-first load. With a warm cache this paints immediately (no spinner) and only
+  // re-requests in the background when the entry is stale or after a mutation (force).
+  const applyData = useCallback(({ group: g, expenses: exps, summary: s }, animate) => {
+    if (animate) {
+      const ids = [...exps.map(e => e._id), ...(s?.pendingSettlements || []).map(p => p._id)];
+      const fresh = ids.filter(id => id && !seenIds.current.has(id));
+      if (fresh.length) {
+        setFreshIds(new Set(fresh));
+        setTimeout(() => setFreshIds(new Set()), 1400);
+      }
+    }
+    exps.forEach(e => e._id && seenIds.current.add(e._id));
+    (s?.pendingSettlements || []).forEach(p => p._id && seenIds.current.add(p._id));
+    setGroup(g);
+    setExpenses(exps);
+    setSummary(s);
+  }, []);
+
   const loadData = useCallback(async ({ force = false } = {}) => {
-    setLoading(true);
+    const peek = peekGroupData(groupId);
     try {
-      const { group: g, expenses: exps, summary: s } = await fetchGroupData(groupId, { force });
-      setGroup(g);
-      setExpenses(exps);
-      setSummary(s);
+      if (peek && !force && !peek.stale) {
+        applyData(peek, false);          // fresh cache: zero network
+        setLoading(false);
+        return;
+      }
+      if (!peek) setLoading(true);       // cold start only
+      const data = await fetchGroupData(groupId, { force });
+      applyData(data, !!peek);           // animate only genuinely new rows
     } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to load group');
-      navigate('/groups');
+      if (!peek) {
+        showToast(err.response?.data?.message || 'Failed to load group');
+        navigate('/groups');
+      }
     } finally {
       setLoading(false);
     }
-  }, [groupId, fetchGroupData, navigate, showToast]);
+  }, [groupId, fetchGroupData, peekGroupData, applyData, navigate, showToast]);
 
-  // After any mutation, invalidate this group's cache slot and reload
+  // After any mutation, refetch quietly in the background; the UI updates in place.
   const refetch = useCallback(() => {
-    invalidateGroup(groupId);
-    loadData({ force: true });
-  }, [groupId, invalidateGroup, loadData]);
+    loadData({ force: true });          // force-fetch overwrites the cache entry on success
+  }, [loadData]);
 
   useEffect(() => {
     loadData();
@@ -368,7 +401,7 @@ export default function GroupDetail() {
       const canDelete = mine && !it.e.settled;
       rows.push(
         <ExpenseBubble
-          key={it.key} e={it.e} mine={mine} first={first} color={memberColor(it.sender)}
+          key={it.key} e={it.e} mine={mine} first={first} color={memberColor(it.sender)} fresh={freshIds.has(it.e._id)}
           canDelete={canDelete} menuOpen={menuId === it.e._id}
           onMenu={() => setMenuId(id => (id === it.e._id ? null : it.e._id))}
           onDelete={() => { setMenuId(null); handleDeleteExpense(it.e._id); }}
@@ -377,12 +410,12 @@ export default function GroupDetail() {
     } else if (it.kind === 'request') {
       rows.push(
         <RequestBubble
-          key={it.key} ps={it.ps} myId={myId} mine={mine} first={first} t={it.t} color={memberColor(it.sender)}
+          key={it.key} ps={it.ps} myId={myId} mine={mine} first={first} t={it.t} color={memberColor(it.sender)} fresh={freshIds.has(it.ps._id)}
           onConfirm={() => handleOpenConfirm(it.ps)} onCancel={() => handleCancelPending(it.ps)}
         />
       );
     } else {
-      rows.push(<SettledNote key={it.key} e={it.e} myId={myId} t={it.t} />);
+      rows.push(<SettledNote key={it.key} e={it.e} myId={myId} t={it.t} fresh={freshIds.has(it.e._id)} />);
     }
     prev = it;
   });
@@ -420,9 +453,6 @@ export default function GroupDetail() {
                 <button className="icon-btn" onClick={() => setShareModal(true)} title="Invite with group code" aria-label="Invite with group code">
                   <ShareIcon style={{ width: 20, height: 20 }} />
                 </button>
-                <button className="icon-btn" aria-pressed={infoOpen} onClick={() => (infoOpen ? setInfoOpen(false) : openInfo('balances'))} title="Group info" aria-label="Group info">
-                  <InformationCircleIcon style={{ width: 21, height: 21 }} />
-                </button>
               </div>
             </header>
 
@@ -430,7 +460,7 @@ export default function GroupDetail() {
             <button className={`chat-pin ${netTone}`} onClick={() => openInfo('balances')}>
               <span className="pin-bar" />
               <span className="pin-text">
-                <span className="pin-title">{netTitle}</span>
+                <span className="pin-title" key={netTitle}>{netTitle}</span>
                 <span className="pin-sub">Group total {moneyRound(totalExpense)} · {netSub}</span>
               </span>
               <span className="pin-go">Balances <ChevronRightIcon style={{ width: 14, height: 14 }} /></span>
@@ -792,12 +822,12 @@ function Ticks({ done }) {
   );
 }
 
-function ExpenseBubble({ e, mine, first, color, canDelete, menuOpen, onMenu, onDelete }) {
+function ExpenseBubble({ e, mine, first, color, fresh, canDelete, menuOpen, onMenu, onDelete }) {
   const settled = !!e.settled || e.status === 'SETTLED';
   const names = (e.splitWith || []).join(', ');
 
   return (
-    <div className={`msg-row ${mine ? 'mine' : ''} ${first ? 'first' : ''}`}>
+    <div className={`msg-row ${mine ? 'mine' : ''} ${first ? 'first' : ''} ${fresh ? 'fresh' : ''}`}>
       {!mine && (first
         ? <span className="msg-av" style={{ background: color }}>{initial(e.paidBy)}</span>
         : <span className="msg-av ghost" />)}
@@ -841,13 +871,13 @@ function ExpenseBubble({ e, mine, first, color, canDelete, menuOpen, onMenu, onD
   );
 }
 
-function RequestBubble({ ps, myId, mine, first, t, color, onConfirm, onCancel }) {
+function RequestBubble({ ps, myId, mine, first, t, color, fresh, onConfirm, onCancel }) {
   const iAmDebtor   = ps.fromId === myId;
   const iAmCreditor = ps.toId   === myId;
   const route = iAmDebtor ? `You → ${ps.to}` : iAmCreditor ? `${ps.from} → You` : `${ps.from} → ${ps.to}`;
 
   return (
-    <div className={`msg-row ${mine ? 'mine' : ''} ${first ? 'first' : ''}`}>
+    <div className={`msg-row ${mine ? 'mine' : ''} ${first ? 'first' : ''} ${fresh ? 'fresh' : ''}`}>
       {!mine && (first
         ? <span className="msg-av" style={{ background: color }}>{initial(ps.from)}</span>
         : <span className="msg-av ghost" />)}
@@ -875,7 +905,7 @@ function RequestBubble({ ps, myId, mine, first, t, color, onConfirm, onCancel })
   );
 }
 
-function SettledNote({ e, myId, t }) {
+function SettledNote({ e, myId, t, fresh }) {
   const to = e.splitWith?.[0] || 'someone';
   const text = e.payerId === myId
     ? `You paid ${to} ${money(e.amount)}`
@@ -883,7 +913,7 @@ function SettledNote({ e, myId, t }) {
       ? `${e.paidBy} paid you ${money(e.amount)}`
       : `${e.paidBy} paid ${to} ${money(e.amount)}`;
   return (
-    <div className="chat-note settled">
+    <div className={`chat-note settled ${fresh ? 'fresh' : ''}`}>
       <CheckCircleIcon style={{ width: 15, height: 15 }} />
       <span>{text}</span>
       {t ? <i>{timeLabel(t)}</i> : null}

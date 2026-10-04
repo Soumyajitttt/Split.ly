@@ -2,7 +2,7 @@ import { createContext, useContext, useRef, useCallback } from 'react';
 import { getMyGroups, getMyExpenses, getGroupDetails, getGroupExpenses, getGroupSummary } from '../api';
 
 const GROUPS_TTL   = 60_000;
-const GROUP_TTL    = 30_000;
+const GROUP_TTL    = 5 * 60_000; // mutations invalidate explicitly, so a long TTL is safe
 const EXPENSES_TTL = 60_000;
 const SUMMARY_TTL  = 30_000;
 
@@ -162,6 +162,12 @@ export function DataCacheProvider({ children }) {
     return inflight.current.groupDetail[groupId];
   }, []);
 
+  // Synchronous read of whatever is cached for a group (even if stale) so pages can paint instantly.
+  const peekGroupData = useCallback((groupId) => {
+    const e = cache.current.groupDetail[groupId];
+    return e ? { group: e.group, expenses: e.expenses, summary: e.summary, stale: isStale(e, GROUP_TTL) } : null;
+  }, []);
+
   const invalidateGroup = useCallback((groupId) => {
     delete cache.current.groupDetail[groupId];
     delete cache.current.summaries[groupId];
@@ -188,6 +194,7 @@ export function DataCacheProvider({ children }) {
     fetchSummary,
     fetchAllSummaries,
     fetchGroupData,
+    peekGroupData,
     invalidateGroup,
     invalidateAll,
     addGroupToCache,
