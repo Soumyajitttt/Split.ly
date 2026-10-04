@@ -4,6 +4,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { generateUniqueGroupCode } from "../utils/generateCode.js";
 import { settleBalances  } from "../utils/settleBalances.js";
 import { sendEmail, emailTemplates } from "../utils/emailService.js";
+import { emitToGroup, joinUserToGroup, leaveUserFromGroup } from "../socket/index.js";
 
 const createGroup = asyncHandler(async (req, res) => {
     const { name, description } = req.body;
@@ -32,6 +33,10 @@ const createGroup = asyncHandler(async (req, res) => {
         { path: "members",   select: "fullname username email" },
         { path: "createdBy", select: "fullname username" }
     ]);
+
+    // Make sure an already-connected socket for the creator starts receiving
+    // this group's realtime events immediately, without waiting on a reconnect.
+    joinUserToGroup(req.user._id.toString(), group._id.toString());
 
     return res.status(201).json({ 
         success: true, 
@@ -68,10 +73,20 @@ const joinGroup = asyncHandler(async (req, res) => {
         { path: "createdBy", select: "fullname username" }
     ]);
 
-    // ── Email the new member a welcome / confirmation ─────────────────────
+    // ── Realtime: pull the joiner's socket(s) into the group room and tell
+    // everyone already in it that a new member has arrived ─────────────────
     const newMember = group.members.find(
         m => (m._id || m).toString() === req.user._id.toString()
     );
+    joinUserToGroup(req.user._id.toString(), group._id.toString());
+    emitToGroup(group._id.toString(), 'member_joined', {
+        actorId:   req.user._id.toString(),
+        actorName: newMember?.fullname || newMember?.username,
+        message:   `${newMember?.fullname || newMember?.username} joined the group`,
+        group,
+    });
+
+    // ── Email the new member a welcome / confirmation ─────────────────────
     if (newMember?.email) {
         sendEmail(emailTemplates.addedToGroup({
             toEmail:     newMember.email,
@@ -179,6 +194,8 @@ const leaveGroup = asyncHandler(async (req, res) => {
     }
 
     // ── Proceed with leave ───────────────────────────────────────────────────
+    const leaverName = req.user.fullname || req.user.username || 'A member';
+
     if (isSoleMember) {
         // Last member (admin or not) → delete the whole group
         await Group.findByIdAndDelete(groupId);
@@ -187,7 +204,15 @@ const leaveGroup = asyncHandler(async (req, res) => {
             m => (m._id || m).toString() !== uid
         );
         await group.save();
+
+        // ── Realtime: tell the remaining members, then drop the leaver's socket ──
+        emitToGroup(groupId, 'member_left', {
+            actorId:   uid,
+            actorName: leaverName,
+            message:   `${leaverName} left the group`,
+        });
     }
+    leaveUserFromGroup(uid, groupId);
 
     await User.findByIdAndUpdate(userId, { $pull: { groups: group._id } });
 

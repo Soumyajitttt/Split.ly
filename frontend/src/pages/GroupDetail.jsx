@@ -10,6 +10,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useDataCache } from '../context/DataCache';
+import { useSocket } from '../context/SocketContext';
 import { useTopbarSlot } from '../context/topbarSlot';
 import {
   ShareIcon,
@@ -81,6 +82,7 @@ function GroupDetail() {
   const showToast = useToast();
   const topbarSlot = useTopbarSlot();
   const { fetchGroupData, peekGroupData, invalidateGroups } = useDataCache();
+  const { onGroupActivity, markGroupRead } = useSocket();
 
   // Paint instantly from the cache when we have it; only show a spinner on a true cold start.
   const [cached0] = useState(() => peekGroupData(groupId));
@@ -160,6 +162,22 @@ function GroupDetail() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Entering (or switching to) a group clears any accumulated unread badge for it.
+  useEffect(() => {
+    markGroupRead(groupId);
+  }, [groupId, markGroupRead]);
+
+  // Realtime: any expense/settlement/membership change in this group — from anyone,
+  // on any device — refetches in place. The existing cache-diff logic in applyData()
+  // already animates in whatever rows are new, so this just needs to trigger it.
+  useEffect(() => {
+    const unsubscribe = onGroupActivity((evt) => {
+      if (evt.groupId !== groupId) return;
+      refetch();
+    });
+    return unsubscribe;
+  }, [groupId, onGroupActivity, refetch]);
 
   const handleAddExpense = async () => {
     const { description, amount, paidby, splitamong, splitType, customSplits } = expForm;

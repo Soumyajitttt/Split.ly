@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useDataCache } from '../context/DataCache';
+import { useSocket } from '../context/SocketContext';
 import {
   ArrowDownLeftIcon,
   ArrowUpRightIcon,
@@ -170,6 +171,7 @@ export default function Dashboard() {
   const showToast = useToast();
   const [welcome] = useState(() => welcomeWord(user?._id));
   const { fetchGroups, fetchMyExpenses, fetchAllSummaries } = useDataCache();
+  const { unreadByGroup } = useSocket();
 
   const [groups, setGroups] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -349,6 +351,7 @@ export default function Dashboard() {
                       {groupRows.map(g => {
                         const net = Math.round((groupNet[g._id] || 0) * 100) / 100;
                         const n = (g.members || []).length;
+                        const unread = unreadByGroup[g._id] || 0;
                         return (
                           <button className="dx-row" key={g._id} onClick={() => navigate(`/groups/${g._id}`)}>
                             <span className="dx-av sq" style={{ background: colorFor(g.name) }}>{g.name?.[0]?.toUpperCase()}</span>
@@ -356,6 +359,11 @@ export default function Dashboard() {
                               <span className="dx-row-title"><b>{g.name}</b></span>
                               <span className="dx-row-sub">{n} member{n === 1 ? '' : 's'}</span>
                             </span>
+                            {unread > 0 && (
+                              <span className="unread-badge" aria-label={`${unread} new ${unread === 1 ? 'activity' : 'activities'}`}>
+                                {unread > 99 ? '99+' : unread}
+                              </span>
+                            )}
                             <span className={`dx-chip ${net > 0 ? 'in' : net < 0 ? 'out' : ''}`}>
                               {net > 0 ? `+${inr(net)}` : net < 0 ? `−${inr(-net)}` : 'Settled'}
                             </span>

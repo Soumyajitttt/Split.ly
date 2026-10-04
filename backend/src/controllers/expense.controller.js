@@ -5,6 +5,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { formatExpenses } from "../utils/formatExpenses.js";
 import { settleBalances } from "../utils/settleBalances.js";
 import { sendEmail, emailTemplates } from "../utils/emailService.js";
+import { emitToGroup } from "../socket/index.js";
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * createExpense
@@ -95,6 +96,17 @@ const createExpense = asyncHandler(async (req, res) => {
 
     const allUsers = [...new Set([...involvedUserIds, payerId.toString()])];
     await User.updateMany({ _id: { $in: allUsers } }, { $addToSet: { expenses: expense._id } });
+
+    // ── Realtime: push this expense/settlement to everyone in the group ──────
+    const actorName = req.user.fullname || req.user.username || 'Someone';
+    emitToGroup(group._id.toString(), splitType === 'settlement' ? 'settlement_recorded' : 'expense_added', {
+        actorId:    req.user._id.toString(),
+        actorName,
+        expenseId:  expense._id.toString(),
+        message:    splitType === 'settlement'
+            ? `${actorName} recorded a settlement`
+            : `${actorName} added "${description}" (₹${Number(amount).toFixed(2)})`,
+    });
 
     // ── Fire-and-forget emails to all non-payer participants ─────────────
     if (splitType !== 'settlement') {
@@ -221,6 +233,14 @@ const deleteExpense = asyncHandler(async (req, res) => {
     const allUsers = [...new Set([...splitAmongIds, ...customSplitIds, payerId])];
     await User.updateMany({ _id: { $in: allUsers } }, { $pull: { expenses: expense._id } });
 
+    // ── Realtime: tell the group this expense is gone ─────────────────────
+    emitToGroup(groupId, 'expense_deleted', {
+        actorId:   req.user._id.toString(),
+        actorName: req.user.fullname || req.user.username || payerName,
+        expenseId: expense._id.toString(),
+        message:   `${req.user.fullname || req.user.username || payerName} deleted "${description}"`,
+    });
+
     // ── Fire-and-forget deletion emails ──────────────────────────────────
     if (expense.splitType !== 'settlement') {
         Object.entries(affectedMap).forEach(([uid, { user, share }]) => {
@@ -260,6 +280,13 @@ const settleExpense = asyncHandler(async (req, res) => {
 
     await Expense.findByIdAndUpdate(expenseId, { $addToSet: { settledBy: userId } });
     const updated = await Expense.findById(expenseId);
+
+    emitToGroup(updated.group.toString(), 'expense_settled', {
+        actorId:   req.user._id.toString(),
+        actorName: req.user.fullname || req.user.username,
+        expenseId: updated._id.toString(),
+    });
+
     res.json({ success: true, message: "Expense settled", expense: updated });
 });
 
@@ -313,6 +340,13 @@ const initiateSettlement = asyncHandler(async (req, res) => {
             groupId,
         }));
     }
+
+    // ── Realtime: the creditor (and everyone else) sees the pending request instantly ──
+    emitToGroup(groupId, 'settlement_initiated', {
+        actorId:   requesterId,
+        actorName: debtor?.fullname || debtor?.username || 'Someone',
+        message:   `${debtor?.fullname || debtor?.username || 'Someone'} marked a payment of ₹${Number(amount).toFixed(2)} to ${creditor?.fullname || creditor?.username} as sent`,
+    });
 
     res.status(201).json({
         success: true,
@@ -389,6 +423,14 @@ const confirmSettlement = asyncHandler(async (req, res) => {
         }));
     }
 
+    // ── Realtime: both parties (and the rest of the group) see the balance clear ──
+    emitToGroup(groupId, 'settlement_confirmed', {
+        actorId:   requesterId,
+        actorName: payeeName,
+        expenseId: expense._id.toString(),
+        message:   `${payeeName} confirmed receiving ₹${Number(amount).toFixed(2)} from ${payerName}`,
+    });
+
     res.status(201).json({
         success: true,
         message: "Settlement confirmed and recorded",
@@ -447,6 +489,13 @@ const cancelSettlement = asyncHandler(async (req, res) => {
             groupId,
         }));
     }
+
+    // ── Realtime: pull the cancelled request off everyone's screen ────────
+    emitToGroup(groupId, 'settlement_cancelled', {
+        actorId:   requesterId,
+        actorName: canceller?.fullname || canceller?.username || 'Someone',
+        message:   `${canceller?.fullname || canceller?.username || 'Someone'} cancelled a pending settlement`,
+    });
 
     res.status(200).json({ success: true, message: "Settlement cancelled" });
 });

@@ -4,6 +4,7 @@ import { Modal, EmptyState, Spinner } from '../components/ui';
 import { createGroup, joinGroup } from '../api';
 import { useToast } from '../context/ToastContext';
 import { useDataCache } from '../context/DataCache';
+import { useSocket } from '../context/SocketContext';
 import {
   PlusIcon,
   ArrowRightEndOnRectangleIcon,
@@ -23,7 +24,7 @@ const money = (n) => {
   return `₹${v.toLocaleString('en-IN', { minimumFractionDigits: hasPaise ? 2 : 0, maximumFractionDigits: 2 })}`;
 };
 
-function GroupRow({ group, total, onClick }) {
+function GroupRow({ group, total, unread, onClick }) {
   const members = group.members || [];
   const names = members.map(firstName).filter(Boolean).join(', ') || '—';
   return (
@@ -34,6 +35,11 @@ function GroupRow({ group, total, onClick }) {
           <div className="glist-title">{group.name}</div>
           <div className="glist-desc">{group.description || 'No description'}</div>
         </div>
+        {unread > 0 && (
+          <span className="unread-badge" aria-label={`${unread} new ${unread === 1 ? 'activity' : 'activities'}`}>
+            {unread > 99 ? '99+' : unread}
+          </span>
+        )}
       </div>
       <div className="glist-members">
         <div className="glist-stack">
@@ -56,6 +62,7 @@ export default function Groups() {
   const navigate = useNavigate();
   const showToast = useToast();
   const { fetchGroups, fetchAllSummaries, addGroupToCache } = useDataCache();
+  const { unreadByGroup } = useSocket();
 
   const [groups, setGroups] = useState([]);
   const [totals, setTotals] = useState({});
@@ -229,7 +236,7 @@ export default function Groups() {
                 <span />
               </div>
               {filtered.map(g => (
-                <GroupRow key={g._id} group={g} total={totals[g._id]} onClick={() => navigate(`/groups/${g._id}`)} />
+                <GroupRow key={g._id} group={g} total={totals[g._id]} unread={unreadByGroup[g._id] || 0} onClick={() => navigate(`/groups/${g._id}`)} />
               ))}
             </div>
           )}

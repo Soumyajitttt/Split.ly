@@ -346,6 +346,19 @@ nav {
 .sidebar-indicator { position: absolute; left: 10px; right: 10px; top: 0; height: 36px; border-radius: 9px; background: rgba(255,255,255,.12); box-shadow: 0 0 0 1px rgba(255,255,255,.08); opacity: 0; pointer-events: none; }
 .sidebar-indicator::before { content: ''; position: absolute; left: -10px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: var(--secondary-container); }
 .sidebar-gdot { width: 20px; height: 20px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; flex-shrink: 0; font-family: 'Be Vietnam Pro', sans-serif; background: rgba(255,255,255,.14); }
+
+/* ─── Realtime unread badge (WhatsApp-style) — sidebar, groups list, dashboard ─── */
+.unread-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px; margin-left: auto; flex-shrink: 0;
+  border-radius: 999px; background: #25d366; color: #fff;
+  font-size: 10.5px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums;
+  font-family: 'Be Vietnam Pro', sans-serif;
+  animation: unreadPop .22s var(--ease);
+}
+@keyframes unreadPop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.sidebar.collapsed .unread-badge { display: none; }
+.glist-name .unread-badge, .dx-row .unread-badge { margin-left: 0; }
 .sidebar-more { padding: 6px 10px; font-size: 12.5px; font-weight: 700; color: var(--secondary-container); cursor: pointer; }
 .sidebar-more:hover { text-decoration: underline; }
 .sidebar-empty { padding: 4px 10px; font-size: 12.5px; color: rgba(255,255,255,.4); font-weight: 500; }

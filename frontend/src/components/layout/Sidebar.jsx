@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useDataCache } from '../../context/DataCache';
+import { useSocket } from '../../context/SocketContext';
 import { logoutUser } from '../../api';
 import {
   HomeIcon,
@@ -43,6 +44,7 @@ export default function Sidebar({ open, onClose }) {
   const { user, logout } = useAuth();
   const showToast = useToast();
   const { fetchGroups, groupsVersion } = useDataCache();
+  const { unreadByGroup } = useSocket();
 
   const [{ width, collapsed }, setLayout] = useState(readStored);
   const [dragging, setDragging] = useState(false);
@@ -207,17 +209,25 @@ export default function Sidebar({ open, onClose }) {
                 </div>
               ))
             ) : (
-              shownGroups.map((g, i) => (
-                <div
-                  key={g._id}
-                  className={`sidebar-item ${location.pathname === `/groups/${g._id}` ? 'active' : ''}`}
-                  title={collapsed ? g.name : undefined}
-                  onClick={() => go(`/groups/${g._id}`)}
-                >
-                  <span className="sidebar-gdot" style={{ background: G_COLORS[i % G_COLORS.length] }}>{g.name?.[0]?.toUpperCase()}</span>
-                  <span className="lbl">{g.name}</span>
-                </div>
-              ))
+              shownGroups.map((g, i) => {
+                const unread = unreadByGroup[g._id] || 0;
+                return (
+                  <div
+                    key={g._id}
+                    className={`sidebar-item ${location.pathname === `/groups/${g._id}` ? 'active' : ''}`}
+                    title={collapsed ? g.name : undefined}
+                    onClick={() => go(`/groups/${g._id}`)}
+                  >
+                    <span className="sidebar-gdot" style={{ background: G_COLORS[i % G_COLORS.length] }}>{g.name?.[0]?.toUpperCase()}</span>
+                    <span className="lbl">{g.name}</span>
+                    {unread > 0 && (
+                      <span className="unread-badge" aria-label={`${unread} new ${unread === 1 ? 'activity' : 'activities'}`}>
+                        {unread > 99 ? '99+' : unread}
+                      </span>
+                    )}
+                  </div>
+                );
+              })
             )}
             {groups.length > shownGroups.length && (
               <div className="sidebar-more" onClick={() => go('/groups')}>View all {groups.length}</div>
