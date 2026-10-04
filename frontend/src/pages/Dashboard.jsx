@@ -26,9 +26,19 @@ const inr = (n) => {
 const compact = (n) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, '')}k` : String(Math.round(n)));
 const shortDate = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '');
 
-const greeting = () => {
-  const h = new Date().getHours();
-  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+/** "Welcome" on a user's very first login, "Welcome back" on every later one (fixed for the whole session). */
+const welcomeWord = (userId) => {
+  try {
+    const cached = sessionStorage.getItem('splitly.welcome');
+    if (cached) return cached;
+    const key = `splitly.welcomed:${userId}`;
+    const word = localStorage.getItem(key) ? 'Welcome back' : 'Welcome';
+    localStorage.setItem(key, '1');
+    sessionStorage.setItem('splitly.welcome', word);
+    return word;
+  } catch {
+    return 'Welcome back';
+  }
 };
 
 /** Eases a number up from 0 once (in paise, so the end value is exact), honouring reduced-motion. */
@@ -158,6 +168,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const showToast = useToast();
+  const [welcome] = useState(() => welcomeWord(user?._id));
   const { fetchGroups, fetchMyExpenses, fetchAllSummaries } = useDataCache();
 
   const [groups, setGroups] = useState([]);
@@ -254,7 +265,7 @@ export default function Dashboard() {
           <div className="dx-wrap">
             <div className="page-header">
               <div>
-                <div className="page-title">{greeting()}{firstName ? `, ${firstName}` : ''}</div>
+                <div className="page-title">{welcome}{firstName ? `, ${firstName}` : ''}</div>
                 <div className="page-sub">{today}</div>
               </div>
               <button className="btn btn-primary btn-sm" onClick={() => navigate('/groups')}>

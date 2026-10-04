@@ -147,9 +147,7 @@ export default function Groups() {
         <div className="main-content">
           <div className="page-header">
             <div>
-              <div className="crumbs">Workspace <span>/</span> <b>Groups</b></div>
               <div className="page-title">Groups</div>
-              <div className="page-sub">Your expense circles — hostels, trips, flatmates.</div>
             </div>
             <div className="new-menu-wrapper">
               <button className="btn btn-primary" onClick={() => setShowMenu(!showMenu)}>

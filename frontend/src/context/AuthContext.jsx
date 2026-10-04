@@ -52,6 +52,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = (userData, token) => {
+    try { sessionStorage.removeItem('splitly.welcome'); } catch { /* ignore */ }
     setUser(userData);
     localStorage.setItem('user', JSON.stringify(userData));
     localStorage.setItem('accessToken', token);
