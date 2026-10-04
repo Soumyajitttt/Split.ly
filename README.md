@@ -33,6 +33,7 @@ Split.ly is a full-stack expense-splitting application built with React and Node
 - **Authentication** — Register and log in with email and password, or sign in with Google (OAuth 2.0). Sessions are managed with short-lived JWT access tokens (15 minutes) and long-lived refresh tokens (7 days) stored in HTTP-only cookies.
 - **Groups** — Create groups and invite members to share costs across any number of people.
 - **Expense tracking** — Add expenses with a description, total amount, and the member who paid. Choose between equal splits (divided evenly across selected members) or custom splits (per-person amounts you specify).
+- **Debt simplification** — Balances are netted per member across equal, custom, and partial splits, then a greedy algorithm matches debtors to creditors so the group settles up in the fewest possible transactions. Instead of everyone paying everyone, you get a short list of "A pays B X" instructions.
 - **Settlements** — Mark individual shares as paid using the `settlement` split type. The expense schema tracks `settledBy` (partial settlers) as well as a top-level `settled` flag and `settledAt` timestamp.
 - **Email notifications** — Transactional email support via Nodemailer and any SMTP provider (configured for Gmail by default).
 - **Responsive UI** — Built with Tailwind CSS v4 and Heroicons. Fully client-side routing via React Router v7 with protected routes for authenticated pages.
@@ -285,5 +286,3 @@ All routes are prefixed with `/api/v1.0.0`.
 | settledBy | ObjectId[] | Users who have paid their share of this expense |
 | settled | Boolean | `true` when all shares are settled; defaults to `false` |
 | settledAt | Date | Timestamp of full settlement; null until settled |
-
-
