@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Modal, Spinner } from '../components/ui';
 import { TabBar, TabContent } from '../components/ui/TabBar';
@@ -9,6 +10,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useDataCache } from '../context/DataCache';
+import { useTopbarSlot } from '../context/topbarSlot';
 import {
   ShareIcon,
   TrashIcon,
@@ -77,6 +79,7 @@ function GroupDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const showToast = useToast();
+  const topbarSlot = useTopbarSlot();
   const { fetchGroupData, peekGroupData, invalidateGroups } = useDataCache();
 
   // Paint instantly from the cache when we have it; only show a spinner on a true cold start.
@@ -330,17 +333,19 @@ function GroupDetail() {
   };
 
   if (loading) return (
+    <>
+    {topbarSlot && createPortal(
+      <div className="topbar-group" aria-hidden="true">
+        <i className="sk sk-av" />
+        <span className="chat-id-text" style={{ flex: 1 }}>
+          <i className="sk sk-l1" style={{ width: 150 }} />
+          <i className="sk sk-l2" style={{ width: 220, maxWidth: '70%' }} />
+        </span>
+      </div>,
+      topbarSlot
+    )}
     <div className="main-content chat-main" aria-busy="true">
       <section className="chat-col" aria-label="Loading group">
-        <header className="chat-head">
-          <div className="chat-id" style={{ cursor: 'default' }}>
-            <i className="sk sk-av" />
-            <span className="chat-id-text" style={{ flex: 1 }}>
-              <i className="sk sk-l1" style={{ width: 150 }} />
-              <i className="sk sk-l2" style={{ width: 220, maxWidth: '70%' }} />
-            </span>
-          </div>
-        </header>
         <div className="chat-pin" style={{ cursor: 'default' }}>
           <span className="pin-bar" />
           <span className="pin-text">
@@ -361,6 +366,7 @@ function GroupDetail() {
         </div>
       </section>
     </div>
+    </>
   );
 
   const totalExpense        = summary?.totalExpense        || 0;
@@ -458,26 +464,28 @@ function GroupDetail() {
 
   return (
     <>
+        {topbarSlot && createPortal(
+          <div className="topbar-group">
+            <button className="chat-back" onClick={() => navigate('/groups')} aria-label="Back to groups">
+              <ArrowLeftIcon style={{ width: 20, height: 20 }} />
+            </button>
+            <button className="chat-id" onClick={() => openInfo('balances')} aria-label="Open group info">
+              <span className="chat-av" style={{ background: groupColor(group?.name) }}>{initial(group?.name)}</span>
+              <span className="chat-id-text">
+                <span className="chat-title">{group?.name}</span>
+                <span className="chat-sub">{memberLine}</span>
+              </span>
+            </button>
+            <div className="chat-head-actions">
+              <button className="icon-btn" onClick={() => setShareModal(true)} title="Invite with group code" aria-label="Invite with group code">
+                <ShareIcon style={{ width: 20, height: 20 }} />
+              </button>
+            </div>
+          </div>,
+          topbarSlot
+        )}
         <div className="main-content chat-main">
           <section className="chat-col" aria-label={`${group?.name} expenses`}>
-            {/* Header */}
-            <header className="chat-head">
-              <button className="chat-back" onClick={() => navigate('/groups')} aria-label="Back to groups">
-                <ArrowLeftIcon style={{ width: 20, height: 20 }} />
-              </button>
-              <button className="chat-id" onClick={() => openInfo('balances')} aria-label="Open group info">
-                <span className="chat-av" style={{ background: groupColor(group?.name) }}>{initial(group?.name)}</span>
-                <span className="chat-id-text">
-                  <span className="chat-title">{group?.name}</span>
-                  <span className="chat-sub">{memberLine}</span>
-                </span>
-              </button>
-              <div className="chat-head-actions">
-                <button className="icon-btn" onClick={() => setShareModal(true)} title="Invite with group code" aria-label="Invite with group code">
-                  <ShareIcon style={{ width: 20, height: 20 }} />
-                </button>
-              </div>
-            </header>
 
             {/* Pinned balance */}
             <button className={`chat-pin ${netTone}`} onClick={() => openInfo('balances')}>

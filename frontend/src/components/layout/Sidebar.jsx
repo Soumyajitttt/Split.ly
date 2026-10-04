@@ -167,11 +167,13 @@ export default function Sidebar({ open, onClose }) {
           <XMarkIcon style={{ width: 18, height: 18 }} />
         </button>
 
+        <div className="sidebar-brand" onClick={() => go('/dashboard')} role="link" aria-label="Split.ly home">
+          <span className="logo-mark">S</span>
+          <span className="logo-word">Split.ly</span>
+        </div>
+
         <div className="sidebar-scroll" ref={scrollRef}>
           <span className="sidebar-indicator" ref={indRef} />
-          <div className="sidebar-top">
-            <span className="sidebar-ws">Workspace</span>
-          </div>
 
           <div className="sidebar-section">
             {navItems.map(item => {

@@ -308,16 +308,19 @@ nav {
 .sidebar {
   --sb-w: 248px;
   width: var(--sb-w); flex-shrink: 0;
-  position: sticky; top: var(--nav-h); height: calc(100vh - var(--nav-h)); align-self: flex-start;
+  position: sticky; top: 0; height: 100vh; height: 100dvh; align-self: flex-start;
   background: #1a1a1d; border-right: 1px solid rgba(255,255,255,.06);
   display: flex; flex-direction: column; overflow: visible;
   transition: width .28s var(--ease);
   z-index: 40;
 }
 .sidebar.dragging { transition: none; user-select: none; }
-.sidebar-scroll { position: relative; flex: 1; overflow-y: auto; overflow-x: hidden; padding: 14px 10px 10px; display: flex; flex-direction: column; min-height: 0; }
+.sidebar-scroll { position: relative; flex: 1; overflow-y: auto; overflow-x: hidden; padding: 12px 10px 10px; display: flex; flex-direction: column; min-height: 0; }
 
-.sidebar-top { display: flex; align-items: center; justify-content: space-between; height: 34px; box-sizing: border-box; padding: 0 10px 10px 12px; gap: 8px; }
+.sidebar-brand { height: var(--nav-h); flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 0 17px; border-bottom: 1px solid rgba(255,255,255,.08); cursor: pointer; overflow: hidden; user-select: none; }
+.sidebar-brand .logo-mark { background: #fff; color: var(--ink); }
+.sidebar-brand .logo-word { color: #fff; white-space: nowrap; transition: opacity .15s; }
+.sidebar.collapsed .sidebar-brand .logo-word { opacity: 0; }
 .sidebar-collapse {
   width: 30px; height: 30px; border-radius: 8px; border: none; background: transparent; color: rgba(255,255,255,.6);
   display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: background .15s, color .15s;
@@ -375,7 +378,7 @@ nav {
   .sidebar.sidebar-open { transform: none; box-shadow: 16px 0 50px rgba(17,17,19,.3); }
   .sidebar-mobile-close { display: flex; }
   .sidebar-backdrop { display: block; }
-  .sidebar-resizer, .sidebar-collapse { display: none; }
+  .sidebar-resizer, .sidebar-collapse, .sidebar-brand { display: none; }
   .sidebar.collapsed .lbl, .sidebar.collapsed .sidebar-label span, .sidebar.collapsed .sidebar-ws,
   .sidebar.collapsed .sidebar-user > div:last-child { opacity: 1; pointer-events: auto; }
   .sidebar.collapsed .sidebar-more, .sidebar.collapsed .sidebar-empty { display: revert; }
@@ -656,9 +659,30 @@ button.dx-row:hover .dx-chev { transform: translateX(3px); color: var(--ink); }
 }
 
 /* ═════════ Group detail as a chat ═════════ */
-.chat-page { height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
-.chat-page .app-layout { flex: 1; min-height: 0; }
-.chat-page .sidebar { height: 100%; }
+/* app shell: full-height sidebar + (top bar / page) column */
+.app-shell { display: flex; min-height: 100vh; background: var(--surface, #f7f6f2); }
+.app-col { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 100vh; }
+.app-shell.chat-mode { height: 100vh; height: 100dvh; overflow: hidden; }
+.chat-mode .app-col { height: 100%; min-height: 0; }
+.chat-mode .sidebar { height: 100%; }
+
+.topbar {
+  position: sticky; top: 0; z-index: 60; flex-shrink: 0; height: var(--nav-h);
+  display: flex; align-items: center; gap: 10px; padding: 0 20px 0 24px;
+  background: rgba(247, 246, 242, 0.82); -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4);
+  border-bottom: 1px solid var(--line);
+}
+.topbar-slot { flex: 1; min-width: 0; display: flex; align-items: center; }
+.topbar-logo { display: none; }
+.topbar-group { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.topbar-group .chat-id { padding: 4px 8px 4px 0; }
+.topbar-group .chat-av, .topbar-group .sk-av { width: 38px; height: 38px; border-radius: 12px; font-size: 16px; }
+.topbar-group .sk-av { margin-right: 12px; }
+@media (max-width: 768px) {
+  .topbar { padding: 0 8px 0 14px; }
+  .topbar-logo { display: flex; }
+  .chat-mode .topbar { padding-left: 12px; }
+}
 .main-content.chat-main { padding: 0; display: flex; min-height: 0; min-width: 0; }
 
 .chat-col {
@@ -831,9 +855,7 @@ button.dx-row:hover .dx-chev { transform: translateX(3px); color: var(--ink); }
   .info-backdrop { display: block; position: fixed; inset: 0; z-index: 210; background: rgba(17,17,19,.32); animation: fadeIn .2s ease both; }
 }
 @media (max-width: 768px) {
-  .chat-page > nav { display: none; }
   .chat-back { display: flex; }
-  .chat-head { padding-left: 14px; }
   .chat-scroll { padding: 10px 10px 10px; }
   .msg-row { padding-right: 8%; }
   .msg-row.mine { padding-left: 8%; }
