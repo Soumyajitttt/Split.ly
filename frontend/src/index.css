@@ -414,7 +414,8 @@ nav {
 .glist-stack { display: flex; }
 .glist-stack span { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #fff; margin-left: -8px; font-size: 10px; font-weight: 800; color: #fff; display: flex; align-items: center; justify-content: center; font-family: 'Be Vietnam Pro', sans-serif; }
 .glist-stack span:first-child { margin-left: 0; }
-.glist-code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; font-weight: 700; letter-spacing: .08em; padding: 4px 9px; border-radius: 7px; background: var(--surface-container); color: var(--ink-2); justify-self: start; }
+.glist-total { font-family: 'Be Vietnam Pro', sans-serif; font-size: 14.5px; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.glist-total-skel { display: inline-block; width: 56px; height: 14px; border-radius: 6px; vertical-align: middle; background: linear-gradient(90deg, #ecebe5 25%, #f6f5f1 50%, #ecebe5 75%); background-size: 200% 100%; animation: dxShimmer 1.4s linear infinite; }
 .glist-names { font-size: 12.5px; font-weight: 500; color: var(--on-surface-variant); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .glist-chev { color: var(--outline); transition: transform .25s var(--ease), color .2s; }
 @media (max-width: 900px) {
@@ -558,6 +559,7 @@ input[type=number].no-spinner { -moz-appearance: textfield; appearance: textfiel
 
 .dx-num { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; font-size: clamp(54px, 7vw, 84px); line-height: 1; letter-spacing: -0.055em; margin: 26px 0 10px; font-variant-numeric: tabular-nums; }
 .dx-cur { font-size: .56em; font-weight: 700; opacity: .72; margin-right: 4px; letter-spacing: 0; vertical-align: .16em; }
+.dx-paise { font-size: .42em; font-weight: 700; letter-spacing: -0.02em; opacity: .72; margin-left: 2px; }
 .dx-note { font-size: 14.5px; font-weight: 500; color: rgba(255,255,255,.82); }
 
 .dx-split { display: flex; gap: 4px; height: 14px; margin-top: auto; padding-top: 0; }

@@ -36,8 +36,12 @@ const G_COLORS = ['#0056c6', '#ff6b35', '#7a5cff', '#00a67e', '#e5486b', '#14141
 const SENDER_COLORS = ['#0056c6', '#c24a17', '#7a5cff', '#0a7a57', '#d6336c', '#8a6d00'];
 const groupColor = (s = '') => G_COLORS[(s.charCodeAt(0) || 0) % G_COLORS.length];
 const initial = (n = '?') => (n[0] || '?').toUpperCase();
-const money = (n) => `₹${(Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
-const moneyRound = (n) => `₹${Math.round(Number(n) || 0).toLocaleString('en-IN')}`;
+// Whole rupees stay clean (₹1,923); anything with paise keeps exactly two decimals (₹685.67, ₹0.40).
+const money = (n) => {
+  const v = Math.round((Number(n) || 0) * 100) / 100;
+  const hasPaise = Math.abs(v % 1) > 0;
+  return `₹${v.toLocaleString('en-IN', { minimumFractionDigits: hasPaise ? 2 : 0, maximumFractionDigits: 2 })}`;
+};
 
 function timeLabel(t) {
   if (!t) return '';
@@ -222,7 +226,7 @@ function GroupDetail() {
     setConfirming(true);
     try {
       await confirmSettlement(groupId, { pendingId: confirmTarget._id });
-      showToast(`Settlement confirmed — ₹${confirmTarget.amount} from ${confirmTarget.from} recorded`);
+      showToast(`Settlement confirmed — ${money(confirmTarget.amount)} from ${confirmTarget.from} recorded`);
       setConfirmTarget(null);
       refetch();
     } catch (err) {
@@ -421,8 +425,8 @@ function GroupDetail() {
   });
 
   const netTone = myNetBalance > 0.01 ? 'owed' : myNetBalance < -0.01 ? 'owe' : 'even';
-  const netTitle = netTone === 'owed' ? `You're owed ${moneyRound(myNetBalance)}`
-    : netTone === 'owe' ? `You owe ${moneyRound(-myNetBalance)}`
+  const netTitle = netTone === 'owed' ? `You're owed ${money(myNetBalance)}`
+    : netTone === 'owe' ? `You owe ${money(-myNetBalance)}`
     : 'All settled up';
   const netSub = settlements.length
     ? `${settlements.length} payment${settlements.length !== 1 ? 's' : ''} left to settle`
@@ -461,7 +465,7 @@ function GroupDetail() {
               <span className="pin-bar" />
               <span className="pin-text">
                 <span className="pin-title" key={netTitle}>{netTitle}</span>
-                <span className="pin-sub">Group total {moneyRound(totalExpense)} · {netSub}</span>
+                <span className="pin-sub">Group total {money(totalExpense)} · {netSub}</span>
               </span>
               <span className="pin-go">Balances <ChevronRightIcon style={{ width: 14, height: 14 }} /></span>
             </button>
@@ -522,9 +526,9 @@ function GroupDetail() {
                   </div>
 
                   <div className="info-stats">
-                    <div><b>{moneyRound(totalExpense)}</b><span>Group total</span></div>
-                    <div><b className="c-owe">{moneyRound(totalIOwe)}</b><span>You owe</span></div>
-                    <div><b className="c-owed">{moneyRound(totalOwedToMe)}</b><span>Owed to you</span></div>
+                    <div><b>{money(totalExpense)}</b><span>Group total</span></div>
+                    <div><b className="c-owe">{money(totalIOwe)}</b><span>You owe</span></div>
+                    <div><b className="c-owed">{money(totalOwedToMe)}</b><span>Owed to you</span></div>
                   </div>
 
                   <TabBar
@@ -785,7 +789,7 @@ function GroupDetail() {
                 Payment to you
               </div>
               <div style={{ fontFamily: "'Be Vietnam Pro', sans-serif", fontSize: 36, fontWeight: 900, color: '#15803d', letterSpacing: '-0.03em', marginBottom: 4 }}>
-                ₹{Number(confirmTarget.amount).toLocaleString('en-IN')}
+                {money(confirmTarget.amount)}
               </div>
               <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 600, color: 'var(--on-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                 <span style={{ fontWeight: 700 }}>{confirmTarget.from}</span>
@@ -794,7 +798,7 @@ function GroupDetail() {
               </div>
             </div>
             <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: 'var(--on-surface-variant)', fontWeight: 500, lineHeight: 1.5, margin: 0 }}>
-              <strong>{confirmTarget.from}</strong> has marked this payment as sent. Please confirm only if you have actually received ₹{Number(confirmTarget.amount).toLocaleString('en-IN')}.
+              <strong>{confirmTarget.from}</strong> has marked this payment as sent. Please confirm only if you have actually received {money(confirmTarget.amount)}.
             </p>
             <div className="modal-actions">
               <button className="btn btn-ghost" onClick={() => setConfirmTarget(null)} disabled={confirming}>Not yet</button>
@@ -942,7 +946,7 @@ function PayCard({ s, myId, isLoading, isPending, onSettle }) {
         </div>
       </div>
       <div className="pay-side">
-        <b className="pay-amt">{moneyRound(s.amount)}</b>
+        <b className="pay-amt">{money(s.amount)}</b>
         {iAmPayer && !isPending && (
           <button className="pay-btn" onClick={onSettle} disabled={isLoading}>
             {isLoading ? <Spinner /> : <><CheckIcon style={{ width: 13, height: 13 }} /> Settle</>}
@@ -966,7 +970,7 @@ function PendingCard({ ps, myId, onConfirm, onCancel }) {
         <div className="pay-note">{iAmCreditor ? 'Confirm you received this payment' : 'Waiting for recipient to confirm receipt'}</div>
       </div>
       <div className="pay-side">
-        <b className="pay-amt">{moneyRound(ps.amount)}</b>
+        <b className="pay-amt">{money(ps.amount)}</b>
         <div className="pay-btns">
           {iAmCreditor && (
             <button className="pay-btn go" onClick={onConfirm}><CheckIcon style={{ width: 13, height: 13 }} /> Confirm</button>

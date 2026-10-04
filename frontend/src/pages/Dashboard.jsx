@@ -21,8 +21,13 @@ import {
 const G_COLORS = ['#0056c6', '#ff6b35', '#7a5cff', '#00a67e', '#e5486b', '#141414'];
 const colorFor = (s = '') => G_COLORS[(s.charCodeAt(0) || 0) % G_COLORS.length];
 
-const inr = (n) => `₹${Math.round(n || 0).toLocaleString('en-IN')}`;
-const compact = (n) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, '')}k` : String(n));
+// Whole rupees stay clean; anything with paise keeps two decimals so small amounts never show as ₹0.
+const inr = (n) => {
+  const v = Math.round((Number(n) || 0) * 100) / 100;
+  const hasPaise = Math.abs(v % 1) > 0;
+  return `₹${v.toLocaleString('en-IN', { minimumFractionDigits: hasPaise ? 2 : 0, maximumFractionDigits: 2 })}`;
+};
+const compact = (n) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, '')}k` : String(Math.round(n)));
 const shortDate = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '');
 
 const greeting = () => {
@@ -30,31 +35,36 @@ const greeting = () => {
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 };
 
-/** Eases a number up from 0 once, honouring reduced-motion. */
+/** Eases a number up from 0 once (in paise, so the end value is exact), honouring reduced-motion. */
 function useCountUp(target, ms = 1100) {
   const [v, setV] = useState(0);
   useEffect(() => {
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     const dur = reduced ? 0 : ms;
+    const end = Math.round(target * 100);
     let raf = 0;
     let t0 = null;
     const tick = (t) => {
       if (t0 === null) t0 = t;
       const p = dur ? Math.min(1, (t - t0) / dur) : 1;
-      setV(Math.round(target * (1 - Math.pow(1 - p, 3))));
+      setV(Math.round(end * (1 - Math.pow(1 - p, 3))));
       if (p < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [target, ms]);
-  return v;
+  return v / 100;
 }
 
 /* ─── hero: where you stand overall ───────────────────────────────────── */
 
 function Hero({ owed, owe, openCount }) {
   const net = owed - owe;
-  const shown = useCountUp(Math.abs(Math.round(net)));
+  const absNet = Math.round(Math.abs(net) * 100) / 100;
+  const shown = useCountUp(absNet);
+  const hasPaise = Math.round(absNet * 100) % 100 !== 0;
+  const whole = Math.floor(shown);
+  const paise = String(Math.round((shown - whole) * 100)).padStart(2, '0');
   const total = owed + owe;
 
   const label = net > 0.5 ? "Overall, you're owed" : net < -0.5 ? 'Overall, you owe' : "You're all square";
@@ -70,8 +80,9 @@ function Hero({ owed, owe, openCount }) {
 
       <span className="dx-pill"><i />{label}</span>
 
-      <div className="dx-num" aria-label={inr(Math.abs(net))}>
-        <span className="dx-cur">₹</span>{shown.toLocaleString('en-IN')}
+      <div className="dx-num" aria-label={inr(absNet)}>
+        <span className="dx-cur">₹</span>{whole.toLocaleString('en-IN')}
+        {hasPaise && <span className="dx-paise">.{paise}</span>}
       </div>
       <p className="dx-note">{note}</p>
 
@@ -214,7 +225,7 @@ export default function Dashboard() {
         match.value += myShare;
       }
     });
-    months.forEach(m => { m.value = Math.round(m.value); });
+    months.forEach(m => { m.value = Math.round(m.value * 100) / 100; });
     return months;
   })();
 
@@ -343,7 +354,7 @@ export default function Dashboard() {
                   ) : (
                     <div className="dx-list">
                       {groupRows.map(g => {
-                        const net = Math.round(groupNet[g._id] || 0);
+                        const net = Math.round((groupNet[g._id] || 0) * 100) / 100;
                         const n = (g.members || []).length;
                         return (
                           <button className="dx-row" key={g._id} onClick={() => navigate(`/groups/${g._id}`)}>
