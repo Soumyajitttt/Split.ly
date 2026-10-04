@@ -304,12 +304,12 @@ nav {
 .owe-table tr:last-child td { border-bottom: none; }
 .amount-owed { text-align: right; color: var(--secondary); font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; }
 
-/* ─── Sidebar (resizable + collapsible) ─── */
+/* ─── Sidebar (resizable + collapsible, very dark grey) ─── */
 .sidebar {
   --sb-w: 248px;
   width: var(--sb-w); flex-shrink: 0;
   position: sticky; top: var(--nav-h); height: calc(100vh - var(--nav-h)); align-self: flex-start;
-  background: var(--surface-container-low); border-right: 1px solid var(--line);
+  background: #1a1a1d; border-right: 1px solid rgba(255,255,255,.06);
   display: flex; flex-direction: column; overflow: visible;
   transition: width .28s var(--ease);
   z-index: 40;
@@ -319,64 +319,64 @@ nav {
 
 .sidebar-top { display: flex; align-items: center; justify-content: space-between; padding: 0 6px 10px 8px; gap: 8px; }
 .sidebar-collapse {
-  width: 30px; height: 30px; border-radius: 8px; border: none; background: transparent; color: var(--on-surface-variant);
+  width: 30px; height: 30px; border-radius: 8px; border: none; background: transparent; color: rgba(255,255,255,.6);
   display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: background .15s, color .15s;
 }
-.sidebar-collapse:hover { background: rgba(17,17,19,.07); color: var(--ink); }
-.sidebar-ws { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; font-size: 13px; letter-spacing: -0.02em; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidebar-collapse:hover { background: rgba(255,255,255,.1); color: #fff; }
+.sidebar-ws { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; font-size: 13px; letter-spacing: -0.02em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .sidebar-section { margin-bottom: 6px; }
-.sidebar-label { font-size: 12px; font-weight: 700; color: var(--outline); padding: 10px 10px 6px; display: flex; align-items: center; justify-content: space-between; white-space: nowrap; }
-.sidebar-label button { background: none; border: none; cursor: pointer; color: var(--on-surface-variant); display: flex; padding: 3px; border-radius: 6px; }
-.sidebar-label button:hover { background: rgba(17,17,19,.07); color: var(--ink); }
+.sidebar-label { font-size: 12px; font-weight: 700; color: rgba(255,255,255,.4); padding: 10px 10px 6px; display: flex; align-items: center; justify-content: space-between; white-space: nowrap; }
+.sidebar-label button { background: none; border: none; cursor: pointer; color: rgba(255,255,255,.55); display: flex; padding: 3px; border-radius: 6px; }
+.sidebar-label button:hover { background: rgba(255,255,255,.1); color: #fff; }
 
 .sidebar-item {
   position: relative; display: flex; align-items: center; gap: 11px; height: 36px; padding: 0 10px; border-radius: 9px; cursor: pointer;
-  font-size: 13.5px; font-weight: 600; color: var(--ink-2); white-space: nowrap; transition: background .15s, color .15s;
+  font-size: 13.5px; font-weight: 600; color: rgba(255,255,255,.68); white-space: nowrap; transition: background .15s, color .15s;
 }
 .sidebar-item svg { flex-shrink: 0; }
 .sidebar-item span.lbl { overflow: hidden; text-overflow: ellipsis; }
-.sidebar-item:hover { background: rgba(17,17,19,.06); color: var(--ink); }
-.sidebar-item.active { background: #fff; color: var(--ink); box-shadow: 0 0 0 1px var(--line); }
-.sidebar-item.active::before { content: ''; position: absolute; left: -10px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: var(--primary); }
-.sidebar-gdot { width: 20px; height: 20px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; flex-shrink: 0; font-family: 'Be Vietnam Pro', sans-serif; }
-.sidebar-more { padding: 6px 10px; font-size: 12.5px; font-weight: 700; color: var(--primary); cursor: pointer; }
+.sidebar-item:hover { background: rgba(255,255,255,.07); color: #fff; }
+.sidebar-item.active { background: rgba(255,255,255,.12); color: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
+.sidebar-item.active::before { content: ''; position: absolute; left: -10px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: var(--secondary-container); }
+.sidebar-gdot { width: 20px; height: 20px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; flex-shrink: 0; font-family: 'Be Vietnam Pro', sans-serif; background: rgba(255,255,255,.14); }
+.sidebar-more { padding: 6px 10px; font-size: 12.5px; font-weight: 700; color: var(--secondary-container); cursor: pointer; }
 .sidebar-more:hover { text-decoration: underline; }
+.sidebar-empty { padding: 4px 10px; font-size: 12.5px; color: rgba(255,255,255,.4); font-weight: 500; }
 
-.sidebar-bottom { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--line); }
+.sidebar-bottom { margin-top: auto; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.08); }
 .sidebar-user { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; margin-top: 6px; }
 .sidebar-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--primary); color: #fff; font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; object-fit: cover; }
-.sidebar-user-name { font-size: 13px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sidebar-user-role { font-size: 11.5px; color: var(--on-surface-variant); font-weight: 500; }
+.sidebar-user-name { font-size: 13px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidebar-user-role { font-size: 11.5px; color: rgba(255,255,255,.45); font-weight: 500; }
 .sidebar-user > div:last-child { min-width: 0; }
 
 /* collapsed rail */
 .sidebar.collapsed .lbl, .sidebar.collapsed .sidebar-label span, .sidebar.collapsed .sidebar-ws,
-.sidebar.collapsed .sidebar-user > div:last-child, .sidebar.collapsed .sidebar-more, .sidebar.collapsed .sidebar-label button { display: none; }
+.sidebar.collapsed .sidebar-user > div:last-child, .sidebar.collapsed .sidebar-more, .sidebar.collapsed .sidebar-label button, .sidebar.collapsed .sidebar-empty { display: none; }
 .sidebar.collapsed .sidebar-top { justify-content: center; padding: 0 0 10px; }
 .sidebar.collapsed .sidebar-item { justify-content: center; padding: 0; }
-.sidebar.collapsed .sidebar-item.active::before { left: -10px; }
 .sidebar.collapsed .sidebar-label { justify-content: center; padding: 8px 0 4px; height: 8px; }
-.sidebar.collapsed .sidebar-label::after { content: ''; width: 18px; height: 1px; background: var(--line-strong); }
+.sidebar.collapsed .sidebar-label::after { content: ''; width: 18px; height: 1px; background: rgba(255,255,255,.18); }
 .sidebar.collapsed .sidebar-user { justify-content: center; padding: 8px 0; }
 
 /* drag handle */
 .sidebar-resizer { position: absolute; top: 0; right: -4px; width: 9px; height: 100%; cursor: col-resize; z-index: 60; touch-action: none; }
 .sidebar-resizer::after { content: ''; position: absolute; left: 4px; top: 0; bottom: 0; width: 2px; background: transparent; transition: background .15s; border-radius: 2px; }
-.sidebar-resizer:hover::after, .sidebar.dragging .sidebar-resizer::after { background: var(--primary); }
+.sidebar-resizer:hover::after, .sidebar.dragging .sidebar-resizer::after { background: var(--secondary-container); }
 
-.sidebar-mobile-close { display: none; background: none; border: none; cursor: pointer; color: var(--on-surface-variant); padding: 8px; border-radius: 50%; align-self: flex-end; margin: 8px 8px 0; }
-.sidebar-mobile-close:hover { background: rgba(17,17,19,.07); }
+.sidebar-mobile-close { display: none; background: none; border: none; cursor: pointer; color: rgba(255,255,255,.7); padding: 8px; border-radius: 50%; align-self: flex-end; margin: 8px 8px 0; }
+.sidebar-mobile-close:hover { background: rgba(255,255,255,.1); }
 .sidebar-backdrop { display: none; }
 
 @media (max-width: 768px) {
-  .sidebar { position: fixed; top: 0; left: 0; height: 100vh; width: 280px; transform: translateX(-102%); transition: transform .32s var(--ease); z-index: 250; background: var(--surface-container-low); }
-  .sidebar.sidebar-open { transform: none; box-shadow: 16px 0 50px rgba(17,17,19,.18); }
+  .sidebar { position: fixed; top: 0; left: 0; height: 100vh; width: 280px; transform: translateX(-102%); transition: transform .32s var(--ease); z-index: 250; }
+  .sidebar.sidebar-open { transform: none; box-shadow: 16px 0 50px rgba(17,17,19,.3); }
   .sidebar-mobile-close { display: flex; }
   .sidebar-backdrop { display: block; }
   .sidebar-resizer, .sidebar-collapse { display: none; }
   .sidebar.collapsed .lbl, .sidebar.collapsed .sidebar-label span, .sidebar.collapsed .sidebar-ws,
-  .sidebar.collapsed .sidebar-user > div:last-child, .sidebar.collapsed .sidebar-more { display: revert; }
+  .sidebar.collapsed .sidebar-user > div:last-child, .sidebar.collapsed .sidebar-more, .sidebar.collapsed .sidebar-empty { display: revert; }
   .sidebar.collapsed .sidebar-item { justify-content: flex-start; padding: 0 10px; }
 }
 
@@ -525,3 +525,19 @@ input[type=number].no-spinner { -moz-appearance: textfield; appearance: textfiel
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
 }
+
+/* ─── Dashboard: simple KPI cards ─── */
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px; }
+.kpi { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px; }
+.kpi-ic { width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; }
+.kpi-label { font-size: 13px; font-weight: 600; color: var(--on-surface-variant); }
+.kpi-value { font-family: 'Be Vietnam Pro', sans-serif; font-size: 30px; font-weight: 800; letter-spacing: -0.045em; line-height: 1.1; color: var(--ink); margin-top: 2px; }
+@media (max-width: 700px) { .kpis { grid-template-columns: 1fr; } .kpi { flex-direction: row; align-items: center; } }
+.dash-row { display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; margin-bottom: 14px; }
+@media (max-width: 1000px) { .dash-row { grid-template-columns: 1fr; } }
+.pay-row { display: flex; align-items: center; gap: 10px; padding: 13px 18px; border-bottom: 1px solid var(--line); font-size: 13.5px; font-weight: 600; }
+.pay-row:last-child { border-bottom: none; }
+.pay-row .who { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pay-row .who i { font-style: normal; color: var(--outline); margin: 0 6px; }
+.pay-row b { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; letter-spacing: -0.02em; }
+.bar-chart .bar.accent { background: var(--secondary-container); }
