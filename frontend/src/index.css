@@ -317,25 +317,27 @@ nav {
 .sidebar.dragging { transition: none; user-select: none; }
 .sidebar-scroll { position: relative; flex: 1; overflow-y: auto; overflow-x: hidden; padding: 14px 10px 10px; display: flex; flex-direction: column; min-height: 0; }
 
-.sidebar-top { display: flex; align-items: center; justify-content: space-between; padding: 0 6px 10px 8px; gap: 8px; }
+.sidebar-top { display: flex; align-items: center; justify-content: space-between; height: 34px; box-sizing: border-box; padding: 0 10px 10px 12px; gap: 8px; }
 .sidebar-collapse {
   width: 30px; height: 30px; border-radius: 8px; border: none; background: transparent; color: rgba(255,255,255,.6);
   display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: background .15s, color .15s;
 }
 .sidebar-collapse:hover { background: rgba(255,255,255,.1); color: #fff; }
-.sidebar-ws { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; font-size: 13px; letter-spacing: -0.02em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidebar-ws { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; font-size: 13px; line-height: 1; letter-spacing: -0.02em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity .15s; }
 
 .sidebar-section { margin-bottom: 6px; }
-.sidebar-label { font-size: 12px; font-weight: 700; color: rgba(255,255,255,.4); padding: 10px 10px 6px; display: flex; align-items: center; justify-content: space-between; white-space: nowrap; }
+.sidebar-label { position: relative; height: 32px; box-sizing: border-box; font-size: 12px; font-weight: 700; color: rgba(255,255,255,.4); padding: 0 12px 6px; display: flex; align-items: flex-end; justify-content: space-between; white-space: nowrap; }
+.sidebar-label span { transition: opacity .15s; }
+.sidebar-label::after { content: ''; position: absolute; left: 50%; bottom: 13px; width: 18px; height: 1px; margin-left: -9px; background: rgba(255,255,255,.18); opacity: 0; transition: opacity .15s; }
 .sidebar-label button { background: none; border: none; cursor: pointer; color: rgba(255,255,255,.55); display: flex; padding: 3px; border-radius: 6px; }
 .sidebar-label button:hover { background: rgba(255,255,255,.1); color: #fff; }
 
 .sidebar-item {
-  position: relative; display: flex; align-items: center; gap: 11px; height: 36px; padding: 0 10px; border-radius: 9px; cursor: pointer;
+  position: relative; display: flex; align-items: center; gap: 11px; height: 36px; padding: 0 12px; border-radius: 9px; cursor: pointer; overflow: hidden;
   font-size: 13.5px; font-weight: 600; color: rgba(255,255,255,.68); white-space: nowrap; transition: background .15s, color .15s;
 }
-.sidebar-item svg { flex-shrink: 0; }
-.sidebar-item span.lbl { overflow: hidden; text-overflow: ellipsis; }
+.sidebar-item svg { flex-shrink: 0; margin: 0 1px; }
+.sidebar-item span.lbl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; transition: opacity .15s; }
 .sidebar-item:hover { background: rgba(255,255,255,.07); color: #fff; }
 .sidebar-item.active, .sidebar-item.active:hover { background: transparent; color: #fff; }
 .sidebar-indicator { position: absolute; left: 10px; right: 10px; top: 0; height: 36px; border-radius: 9px; background: rgba(255,255,255,.12); box-shadow: 0 0 0 1px rgba(255,255,255,.08); opacity: 0; pointer-events: none; }
@@ -346,20 +348,18 @@ nav {
 .sidebar-empty { padding: 4px 10px; font-size: 12.5px; color: rgba(255,255,255,.4); font-weight: 500; }
 
 .sidebar-bottom { margin-top: auto; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.08); }
-.sidebar-user { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; margin-top: 6px; }
+.sidebar-user { display: flex; align-items: center; gap: 10px; padding: 10px 7px; border-radius: 10px; margin-top: 6px; overflow: hidden; }
 .sidebar-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--primary); color: #fff; font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; object-fit: cover; }
+.sidebar-user > div:last-child { transition: opacity .15s; }
 .sidebar-user-name { font-size: 13px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sidebar-user-role { font-size: 11.5px; color: rgba(255,255,255,.45); font-weight: 500; }
 .sidebar-user > div:last-child { min-width: 0; }
 
-/* collapsed rail */
+/* collapsed rail — text fades out, nothing that affects icon position or row height changes */
 .sidebar.collapsed .lbl, .sidebar.collapsed .sidebar-label span, .sidebar.collapsed .sidebar-ws,
-.sidebar.collapsed .sidebar-user > div:last-child, .sidebar.collapsed .sidebar-more, .sidebar.collapsed .sidebar-label button, .sidebar.collapsed .sidebar-empty { display: none; }
-.sidebar.collapsed .sidebar-top { justify-content: center; padding: 0 0 10px; }
-.sidebar.collapsed .sidebar-item { justify-content: center; padding: 0; }
-.sidebar.collapsed .sidebar-label { justify-content: center; padding: 8px 0 4px; height: 8px; }
-.sidebar.collapsed .sidebar-label::after { content: ''; width: 18px; height: 1px; background: rgba(255,255,255,.18); }
-.sidebar.collapsed .sidebar-user { justify-content: center; padding: 8px 0; }
+.sidebar.collapsed .sidebar-user > div:last-child { opacity: 0; pointer-events: none; }
+.sidebar.collapsed .sidebar-more, .sidebar.collapsed .sidebar-empty { display: none; }
+.sidebar.collapsed .sidebar-label::after { opacity: 1; }
 
 /* drag handle */
 .sidebar-resizer { position: absolute; top: 0; right: -4px; width: 9px; height: 100%; cursor: col-resize; z-index: 60; touch-action: none; }
@@ -377,8 +377,9 @@ nav {
   .sidebar-backdrop { display: block; }
   .sidebar-resizer, .sidebar-collapse { display: none; }
   .sidebar.collapsed .lbl, .sidebar.collapsed .sidebar-label span, .sidebar.collapsed .sidebar-ws,
-  .sidebar.collapsed .sidebar-user > div:last-child, .sidebar.collapsed .sidebar-more, .sidebar.collapsed .sidebar-empty { display: revert; }
-  .sidebar.collapsed .sidebar-item { justify-content: flex-start; padding: 0 10px; }
+  .sidebar.collapsed .sidebar-user > div:last-child { opacity: 1; pointer-events: auto; }
+  .sidebar.collapsed .sidebar-more, .sidebar.collapsed .sidebar-empty { display: revert; }
+  .sidebar.collapsed .sidebar-label::after { opacity: 0; }
 }
 
 /* ─── Bottom nav (mobile) ─── */
@@ -850,3 +851,30 @@ button.dx-row:hover .dx-chev { transform: translateX(3px); color: var(--ink); }
 .msg-row.fresh .bubble { animation: bubbleGlow 1.4s ease-out both; }
 .chat-note.fresh { animation: bubbleIn .5s var(--ease) both; }
 .pin-title { animation: pinTick .35s var(--ease) both; }
+
+/* ═════════ Skeleton loading (shell stays put, only data areas shimmer) ═════════ */
+.sk, .sk-line, .sk-dot, .sk-bub { background: linear-gradient(90deg, #ecebe5 25%, #f6f5f1 50%, #ecebe5 75%); background-size: 200% 100%; animation: dxShimmer 1.4s linear infinite; }
+.sk { display: block; border-radius: 6px; }
+.sk-ic { width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0; }
+.sk-av { width: 42px; height: 42px; border-radius: 13px; flex-shrink: 0; }
+.sk-l1 { height: 14px; margin-bottom: 8px; }
+.sk-l2 { height: 11px; }
+.pin-text .sk-l1, .chat-id-text .sk-l1 { margin-bottom: 6px; }
+.glist-row.skel { cursor: default; }
+.glist-row.skel:hover { background: transparent; }
+
+/* sidebar skeleton on the dark rail */
+.sidebar-skel { cursor: default; pointer-events: none; }
+.sidebar-skel .sk-dot, .sidebar-skel .sk-line { background: linear-gradient(90deg, rgba(255,255,255,.07) 25%, rgba(255,255,255,.15) 50%, rgba(255,255,255,.07) 75%); background-size: 200% 100%; animation: dxShimmer 1.4s linear infinite; }
+.sk-dot { display: block; width: 20px; height: 20px; border-radius: 6px; flex-shrink: 0; }
+.sk-line { display: block; height: 11px; border-radius: 5px; }
+
+/* chat skeleton bubbles */
+.sk-bub { height: 52px; border-radius: 14px; flex-shrink: 0; opacity: .85; }
+.sk-bub.l { align-self: flex-start; border-top-left-radius: 4px; }
+.sk-bub.r { align-self: flex-end; border-top-right-radius: 4px; }
+.composer-send:empty { opacity: .5; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sk, .sk-line, .sk-dot, .sk-bub, .sidebar-skel .sk-dot, .sidebar-skel .sk-line { animation: none; }
+}

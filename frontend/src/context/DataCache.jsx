@@ -1,4 +1,4 @@
-import { createContext, useContext, useRef, useCallback } from 'react';
+import { createContext, useContext, useRef, useCallback, useState } from 'react';
 import { getMyGroups, getMyExpenses, getGroupDetails, getGroupExpenses, getGroupSummary } from '../api';
 
 const GROUPS_TTL   = 60_000;
@@ -19,6 +19,10 @@ export function DataCacheProvider({ children }) {
     summaries:   {},   // ← NEW: { [groupId]: { ts, data } }
     groupDetail: {},
   });
+
+  // Bumped whenever the groups list changes locally, so long-lived consumers (the sidebar) re-read it.
+  const [groupsVersion, setGroupsVersion] = useState(0);
+  const bumpGroups = useCallback(() => setGroupsVersion(v => v + 1), []);
 
   const inflight = useRef({
     groups:      null,
@@ -50,7 +54,8 @@ export function DataCacheProvider({ children }) {
 
   const invalidateGroups = useCallback(() => {
     cache.current.groups = null;
-  }, []);
+    bumpGroups();
+  }, [bumpGroups]);
 
   // ── My expenses ──────────────────────────────────────────────────────────────
   const fetchMyExpenses = useCallback(async ({ force = false } = {}) => {
@@ -175,7 +180,8 @@ export function DataCacheProvider({ children }) {
 
   const invalidateAll = useCallback(() => {
     cache.current = { groups: null, expenses: null, summaries: {}, groupDetail: {} };
-  }, []);
+    bumpGroups();
+  }, [bumpGroups]);
 
   const addGroupToCache = useCallback((group) => {
     if (cache.current.groups) {
@@ -184,9 +190,11 @@ export function DataCacheProvider({ children }) {
         data: [group, ...cache.current.groups.data],
       };
     }
-  }, []);
+    bumpGroups();
+  }, [bumpGroups]);
 
   const value = {
+    groupsVersion,
     fetchGroups,
     invalidateGroups,
     fetchMyExpenses,

@@ -25,10 +25,6 @@ const COLLAPSE_AT = 150; // dragging narrower than this snaps to the rail
 const STORE_KEY = 'splitly.sidebar';
 const G_COLORS = ['#0056c6', '#ff6b35', '#7a5cff', '#00a67e', '#e5486b', '#141414'];
 
-// remembered between page mounts so the active highlight can slide from the previous tab
-let lastPos = null;
-let groupsMemo = [];
-
 function readStored() {
   try {
     const v = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
@@ -46,11 +42,13 @@ export default function Sidebar({ open, onClose }) {
   const location = useLocation();
   const { user, logout } = useAuth();
   const showToast = useToast();
-  const { fetchGroups } = useDataCache();
+  const { fetchGroups, groupsVersion } = useDataCache();
 
   const [{ width, collapsed }, setLayout] = useState(readStored);
   const [dragging, setDragging] = useState(false);
-  const [groups, setGroups] = useState(() => groupsMemo);
+  const [groups, setGroups] = useState([]);
+  const [groupsLoading, setGroupsLoading] = useState(true);
+  const lastPos = useRef(null);
   const scrollRef = useRef(null);
   const indRef = useRef(null);
   const widthRef = useRef(width);
@@ -61,29 +59,48 @@ export default function Sidebar({ open, onClose }) {
     try { localStorage.setItem(STORE_KEY, JSON.stringify({ width, collapsed })); } catch { /* ignore */ }
   }, [width, collapsed]);
 
-  // groups shortcut list (served from the existing cache)
+  // groups shortcut list (served from the shared cache). The sidebar never unmounts, so it
+  // re-reads whenever the cache reports a local change; the old list stays up meanwhile.
   useEffect(() => {
     let cancelled = false;
-    fetchGroups().then(gs => { groupsMemo = gs || []; if (!cancelled) setGroups(gs || []); }).catch(() => {});
+    fetchGroups()
+      .then(gs => { if (!cancelled) setGroups(gs || []); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setGroupsLoading(false); });
     return () => { cancelled = true; };
-  }, [fetchGroups]);
+  }, [fetchGroups, groupsVersion]);
 
-  // sliding active highlight (GSAP)
-  useLayoutEffect(() => {
+  // sliding active highlight (GSAP). Re-measured on route/groups/collapse changes and whenever
+  // the list's size changes (skeleton -> real rows, width transition, fonts), so it can't drift.
+  const placeIndicator = useCallback((animate) => {
     const el = scrollRef.current?.querySelector('.sidebar-item.active');
     const ind = indRef.current;
     if (!ind) return undefined;
-    if (!el) { gsap.set(ind, { opacity: 0 }); return undefined; }
+    if (!el) { gsap.set(ind, { opacity: 0 }); lastPos.current = null; return undefined; }
     const next = { y: el.offsetTop, height: el.offsetHeight };
     let tween;
-    if (lastPos) {
-      tween = gsap.fromTo(ind, { ...lastPos, opacity: 1 }, { ...next, opacity: 1, duration: 0.5, ease: 'power3.out' });
+    if (animate && lastPos.current) {
+      tween = gsap.fromTo(ind, { ...lastPos.current, opacity: 1 }, { ...next, opacity: 1, duration: 0.5, ease: 'power3.out' });
     } else {
       gsap.set(ind, { ...next, opacity: 1 });
     }
-    lastPos = next;
+    lastPos.current = next;
+    return tween;
+  }, []);
+
+  useLayoutEffect(() => {
+    const tween = placeIndicator(true);
     return () => tween?.kill();
-  }, [location.pathname, groups.length]);
+  }, [location.pathname, groups.length, groupsLoading, placeIndicator]);
+
+  useEffect(() => {
+    const box = scrollRef.current;
+    if (!box || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(() => placeIndicator(false));
+    ro.observe(box);
+    Array.from(box.children).forEach(c => { if (!c.classList.contains('sidebar-indicator')) ro.observe(c); });
+    return () => ro.disconnect();
+  }, [placeIndicator, groups.length, groupsLoading, collapsed]);
 
   const startDrag = useCallback((e) => {
     e.preventDefault();
@@ -180,21 +197,30 @@ export default function Sidebar({ open, onClose }) {
             <div className="sidebar-label">
               <span>Your groups</span>
             </div>
-            {shownGroups.map((g, i) => (
-              <div
-                key={g._id}
-                className={`sidebar-item ${location.pathname === `/groups/${g._id}` ? 'active' : ''}`}
-                title={collapsed ? g.name : undefined}
-                onClick={() => go(`/groups/${g._id}`)}
-              >
-                <span className="sidebar-gdot" style={{ background: G_COLORS[i % G_COLORS.length] }}>{g.name?.[0]?.toUpperCase()}</span>
-                <span className="lbl">{g.name}</span>
-              </div>
-            ))}
+            {groupsLoading && groups.length === 0 ? (
+              [0, 1, 2].map(i => (
+                <div className="sidebar-item sidebar-skel" key={i} aria-hidden="true">
+                  <span className="sk-dot" />
+                  <span className="lbl"><i className="sk-line" style={{ width: `${68 - i * 14}%` }} /></span>
+                </div>
+              ))
+            ) : (
+              shownGroups.map((g, i) => (
+                <div
+                  key={g._id}
+                  className={`sidebar-item ${location.pathname === `/groups/${g._id}` ? 'active' : ''}`}
+                  title={collapsed ? g.name : undefined}
+                  onClick={() => go(`/groups/${g._id}`)}
+                >
+                  <span className="sidebar-gdot" style={{ background: G_COLORS[i % G_COLORS.length] }}>{g.name?.[0]?.toUpperCase()}</span>
+                  <span className="lbl">{g.name}</span>
+                </div>
+              ))
+            )}
             {groups.length > shownGroups.length && (
               <div className="sidebar-more" onClick={() => go('/groups')}>View all {groups.length}</div>
             )}
-            {groups.length === 0 && !collapsed && (
+            {!groupsLoading && groups.length === 0 && !collapsed && (
               <div className="sidebar-empty">No groups yet</div>
             )}
           </div>

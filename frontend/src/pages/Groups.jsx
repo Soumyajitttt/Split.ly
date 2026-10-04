@@ -1,8 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Nav from '../components/layout/Nav';
-import Sidebar from '../components/layout/Sidebar';
-import BottomNav from '../components/layout/BottomNav';
 import { Modal, EmptyState, Spinner } from '../components/ui';
 import { createGroup, joinGroup } from '../api';
 import { useToast } from '../context/ToastContext';
@@ -12,7 +9,6 @@ import {
   ArrowRightEndOnRectangleIcon,
   UserGroupIcon,
   MagnifyingGlassIcon,
-  ArrowLeftIcon,
   ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 
@@ -66,7 +62,6 @@ export default function Groups() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showMenu, setShowMenu] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [createModal, setCreateModal] = useState(false);
   const [joinModal, setJoinModal] = useState(false);
@@ -148,19 +143,7 @@ export default function Groups() {
   );
 
   return (
-    <div className="app-page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <Nav
-        showMenu
-        onMenuClick={() => setSidebarOpen(true)}
-        actions={
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/')}>
-            <ArrowLeftIcon style={{ width: 15, height: 15 }} />
-            Home
-          </button>
-        }
-      />
-      <div className="app-layout">
-        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <>
         <div className="main-content">
           <div className="page-header">
             <div>
@@ -207,7 +190,30 @@ export default function Groups() {
           </div>
 
           {loading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: 60, color: 'var(--primary)' }}><Spinner /></div>
+            <div className="glist" aria-busy="true">
+              <div className="glist-head">
+                <span>Group</span>
+                <span>Members</span>
+                <span>Total expense</span>
+                <span>People</span>
+                <span />
+              </div>
+              {[0, 1, 2, 3].map(i => (
+                <div className="glist-row skel" key={i} aria-hidden="true">
+                  <div className="glist-name">
+                    <i className="sk sk-ic" />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <i className="sk sk-l1" style={{ width: `${55 - i * 6}%` }} />
+                      <i className="sk sk-l2" style={{ width: `${75 - i * 8}%` }} />
+                    </div>
+                  </div>
+                  <div><i className="sk sk-l2" style={{ width: 90 }} /></div>
+                  <div><i className="sk sk-l1" style={{ width: 56 }} /></div>
+                  <div><i className="sk sk-l2" style={{ width: '70%' }} /></div>
+                  <span />
+                </div>
+              ))}
+            </div>
           ) : filtered.length === 0 ? (
             <div className="glist">
               <EmptyState
@@ -230,7 +236,6 @@ export default function Groups() {
             </div>
           )}
         </div>
-      </div>
 
       {/* Join Modal */}
       <Modal open={joinModal} onClose={() => setJoinModal(false)} title="Join a group">
@@ -277,8 +282,6 @@ export default function Groups() {
           </div>
         </div>
       </Modal>
-
-      <BottomNav />
-    </div>
+    </>
   );
 }

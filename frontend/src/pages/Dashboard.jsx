@@ -1,13 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Nav from '../components/layout/Nav';
-import Sidebar from '../components/layout/Sidebar';
-import BottomNav from '../components/layout/BottomNav';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useDataCache } from '../context/DataCache';
 import {
-  ArrowLeftIcon,
   ArrowDownLeftIcon,
   ArrowUpRightIcon,
   CheckCircleIcon,
@@ -168,7 +164,6 @@ export default function Dashboard() {
   const [expenses, setExpenses] = useState([]);
   const [groupSummaries, setGroupSummaries] = useState({});
   const [loading, setLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -255,20 +250,7 @@ export default function Dashboard() {
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
-    <div className="app-page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <Nav
-        showMenu
-        onMenuClick={() => setSidebarOpen(true)}
-        actions={
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/')}>
-            <ArrowLeftIcon style={{ width: 15, height: 15 }} />
-            Home
-          </button>
-        }
-      />
-      <div className="app-layout">
-        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <div className="main-content">
+<div className="main-content">
           <div className="dx-wrap">
             <div className="page-header">
               <div>
@@ -418,8 +400,5 @@ export default function Dashboard() {
             )}
           </div>
         </div>
-      </div>
-      <BottomNav />
-    </div>
   );
 }

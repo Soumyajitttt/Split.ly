@@ -1,7 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import Nav from '../components/layout/Nav';
-import Sidebar from '../components/layout/Sidebar';
 import { Modal, Spinner } from '../components/ui';
 import { TabBar, TabContent } from '../components/ui/TabBar';
 import {
@@ -94,7 +92,6 @@ function GroupDetail() {
   ]));
   const [activeTab, setActiveTab] = useState('balances');
   const [tabSwitched, setTabSwitched] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [expenseModal, setExpenseModal] = useState(false);
   const [shareModal,   setShareModal]   = useState(false);
@@ -333,9 +330,36 @@ function GroupDetail() {
   };
 
   if (loading) return (
-    <div className="app-page chat-page">
-      <Nav showMenu onMenuClick={() => setSidebarOpen(true)} />
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Spinner /></div>
+    <div className="main-content chat-main" aria-busy="true">
+      <section className="chat-col" aria-label="Loading group">
+        <header className="chat-head">
+          <div className="chat-id" style={{ cursor: 'default' }}>
+            <i className="sk sk-av" />
+            <span className="chat-id-text" style={{ flex: 1 }}>
+              <i className="sk sk-l1" style={{ width: 150 }} />
+              <i className="sk sk-l2" style={{ width: 220, maxWidth: '70%' }} />
+            </span>
+          </div>
+        </header>
+        <div className="chat-pin" style={{ cursor: 'default' }}>
+          <span className="pin-bar" />
+          <span className="pin-text">
+            <i className="sk sk-l1" style={{ width: 130 }} />
+            <i className="sk sk-l2" style={{ width: 200, maxWidth: '70%' }} />
+          </span>
+        </div>
+        <div className="chat-body">
+          <div className="chat-scroll" style={{ gap: 10, justifyContent: 'flex-end' }}>
+            {[['l', 62], ['l', 48], ['r', 56], ['l', 70], ['r', 44]].map(([side, w], i) => (
+              <div key={i} className={`sk-bub ${side}`} style={{ width: `min(${w}%, 340px)` }} />
+            ))}
+          </div>
+        </div>
+        <div className="composer" aria-hidden="true">
+          <input className="composer-input" disabled placeholder="Add an expense, e.g. Dinner 450" />
+          <span className="composer-send" />
+        </div>
+      </section>
     </div>
   );
 
@@ -433,12 +457,7 @@ function GroupDetail() {
     : 'Nobody owes anything';
 
   return (
-    <div className="app-page chat-page">
-      <Nav showMenu onMenuClick={() => setSidebarOpen(true)} />
-
-      <div className="app-layout">
-        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
+    <>
         <div className="main-content chat-main">
           <section className="chat-col" aria-label={`${group?.name} expenses`}>
             {/* Header */}
@@ -623,7 +642,6 @@ function GroupDetail() {
             </>
           )}
         </div>
-      </div>
 
       {/* ── Modals (unchanged) ── */}
       {/* Add Expense Modal */}
@@ -810,7 +828,7 @@ function GroupDetail() {
         )}
       </Modal>
 
-    </div>
+    </>
   );
 }
 
