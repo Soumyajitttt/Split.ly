@@ -9,24 +9,24 @@ import { useToast } from '../context/ToastContext';
 import { useDataCache } from '../context/DataCache';
 import {
   ArrowLeftIcon,
-  CheckCircleIcon,
+  ArrowDownLeftIcon,
   ArrowUpRightIcon,
-  ReceiptPercentIcon,
+  UserGroupIcon,
+  CheckCircleIcon,
 } from '@heroicons/react/24/outline';
 
-const G_COLORS = ['#0056c6', '#ff6b35', '#7a5cff', '#00a67e', '#e5486b', '#141414'];
-const colorFor = (s = '') => G_COLORS[(s.charCodeAt(0) || 0) % G_COLORS.length];
 const inr = (n) => `₹${Math.round(n || 0).toLocaleString('en-IN')}`;
 
-function Metric({ label, value, note, dot }) {
+function Kpi({ icon: Icon, bg, fg, label, value }) {
   return (
-    <div className="metric">
-      <div className="metric-label">
-        <span className="metric-dot" style={{ background: dot }} />
-        {label}
+    <div className="kpi">
+      <div className="kpi-ic" style={{ background: bg, color: fg }}>
+        <Icon style={{ width: 19, height: 19 }} />
       </div>
-      <div className="metric-value">{value}</div>
-      <div className="metric-note">{note}</div>
+      <div>
+        <div className="kpi-label">{label}</div>
+        <div className="kpi-value">{value}</div>
+      </div>
     </div>
   );
 }
@@ -37,14 +37,9 @@ function BarChart({ data }) {
     <div className="bar-chart">
       {data.map((d, i) => {
         const pct = Math.max(Math.round((d.value / max) * 85), 4);
-        const isAccent = i === data.length - 1;
         return (
           <div className="bar-col" key={d.label}>
-            <div
-              className={`bar ${isAccent ? 'accent' : ''}`}
-              style={{ height: `${pct}%` }}
-              title={`₹${d.value}`}
-            />
+            <div className={`bar ${i === data.length - 1 ? 'accent' : ''}`} style={{ height: `${pct}%` }} title={inr(d.value)} />
             <span className="bar-label">{d.label}</span>
           </div>
         );
@@ -70,19 +65,16 @@ export default function Dashboard() {
 
     const fetchData = async () => {
       try {
-        // Step 1: get groups + expenses from cache (instant on revisit)
         const [gs, exps] = await Promise.all([fetchGroups(), fetchMyExpenses()]);
         if (cancelled) return;
         setGroups(gs);
         setExpenses(exps);
 
-        // Step 2: get whatever summaries are cached right now — render immediately
         const { summaries: cachedSummaries, refreshPromise } = await fetchAllSummaries(gs);
         if (cancelled) return;
         setGroupSummaries(cachedSummaries);
         setLoading(false);
 
-        // Step 3: when stale summaries finish refreshing in the background, update quietly
         refreshPromise.then(() => {
           if (cancelled) return;
           fetchAllSummaries(gs).then(({ summaries }) => {
@@ -103,7 +95,6 @@ export default function Dashboard() {
 
   const totalOwe  = expenses.filter(e => e.status === 'PENDING').reduce((s, e) => s + (e.youOwe || 0), 0);
   const totalOwed = expenses.filter(e => e.status === 'YOU PAID').reduce((s, e) => s + (e.othersOweYou || 0), 0);
-  const totalTracked = expenses.reduce((s, e) => s + (e.amount || 0), 0);
 
   const barData = (() => {
     const months = [];
@@ -128,35 +119,11 @@ export default function Dashboard() {
 
   const recentActivity = [...expenses]
     .sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date))
-    .slice(0, 6);
+    .slice(0, 4);
 
-  const allSettlements = Object.entries(groupSummaries).flatMap(([gId, s]) => {
-    const group = groups.find(g => g._id === gId);
-    return (s?.settlements || []).map(st => ({ ...st, groupName: group?.name || '' }));
-  });
+  const allSettlements = Object.values(groupSummaries).flatMap(s => s?.settlements || []);
 
-  // 6-month spend trend for one group (same matching logic as before)
-  const sparkFor = (g) => {
-    const now = new Date();
-    const totals = [0, 0, 0, 0, 0, 0];
-    expenses.forEach(e => {
-      const isGroupMatch =
-        String(e.group?._id) === String(g._id) ||
-        String(e.group) === String(g._id) ||
-        String(e.groupId) === String(g._id) ||
-        e.group?.name === g.name;
-      const dateStr = e.createdAt || e.date;
-      if (isGroupMatch && dateStr) {
-        const eDate = new Date(dateStr);
-        const monthDiff = (now.getFullYear() - eDate.getFullYear()) * 12 + (now.getMonth() - eDate.getMonth());
-        if (monthDiff >= 0 && monthDiff < 6) totals[5 - monthDiff] += (e.amount || 0);
-      }
-    });
-    const max = Math.max(...totals, 1);
-    return { totals, sparks: totals.map(v => (v === 0 ? 0.06 : Math.max(v / max, 0.15))) };
-  };
-
-  const monthLabel = new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+  const firstName = (user?.fullname || user?.username || '').split(' ')[0];
 
   return (
     <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -175,14 +142,9 @@ export default function Dashboard() {
         <div className="main-content">
           <div className="page-header">
             <div>
-              <div className="crumbs">Workspace <span>/</span> <b>Dashboard</b></div>
-              <div className="page-title">Dashboard</div>
-              <div className="page-sub">Your financial overview for {monthLabel}</div>
+              <div className="page-title">Hi{firstName ? `, ${firstName}` : ''}</div>
+              <div className="page-sub">Here's where your money stands.</div>
             </div>
-            <span className="tag tag-green" style={{ alignSelf: 'center' }}>
-              <span className="live-dot" />
-              Live
-            </span>
           </div>
 
           {loading ? (
@@ -191,134 +153,27 @@ export default function Dashboard() {
             </div>
           ) : (
             <>
-              {/* Metrics */}
-              <div className="metrics">
-                <Metric dot="#00a67e" label="Owed to you" value={inr(totalOwed)} note="From all groups" />
-                <Metric dot="#ff6b35" label="You owe" value={inr(totalOwe)} note="Across groups" />
-                <Metric dot="#0056c6" label="Total tracked" value={inr(totalTracked)} note={`${expenses.length} expense${expenses.length !== 1 ? 's' : ''}`} />
-                <Metric dot="#7a5cff" label="Active groups" value={String(groups.length)} note={`${groups.reduce((s, g) => s + (g.members?.length || 0), 0)} total members`} />
+              <div className="kpis">
+                <Kpi icon={ArrowDownLeftIcon} bg="var(--success-bg)" fg="var(--success)" label="You're owed" value={inr(totalOwed)} />
+                <Kpi icon={ArrowUpRightIcon} bg="var(--secondary-fixed)" fg="var(--secondary)" label="You owe" value={inr(totalOwe)} />
+                <Kpi icon={UserGroupIcon} bg="var(--primary-fixed)" fg="var(--primary)" label="Groups" value={String(groups.length)} />
               </div>
 
-              {/* Spending + activity */}
-              <div className="dashboard-grid">
+              <div className="dash-row">
                 <div className="panel">
-                  <div className="panel-head">
-                    <div className="panel-title">Monthly spending</div>
-                    <span className="panel-meta">Last 6 months</span>
-                  </div>
+                  <div className="panel-head"><div className="panel-title">Your spending</div></div>
                   <div className="panel-body">
                     <BarChart data={barData} />
                     {barData.every(d => d.value === 0) && (
                       <div style={{ fontSize: 12.5, color: 'var(--on-surface-variant)', textAlign: 'center', marginTop: 10, fontWeight: 500 }}>
-                        Add expenses to see spending trends
+                        Add an expense to see your spending.
                       </div>
                     )}
                   </div>
                 </div>
 
                 <div className="panel">
-                  <div className="panel-head">
-                    <div className="panel-title">Recent activity</div>
-                  </div>
-                  <div className="activity-feed">
-                    {recentActivity.length === 0 ? (
-                      <div className="empty-line">No activity yet. Add an expense in a group.</div>
-                    ) : recentActivity.map((e, i) => {
-                      const paid = e.status === 'YOU PAID';
-                      return (
-                        <div className="activity-item" key={i}>
-                          <div
-                            className="activity-icon"
-                            style={{ background: paid ? 'var(--success-bg)' : 'var(--secondary-fixed)', color: paid ? 'var(--success)' : 'var(--secondary)' }}
-                          >
-                            {paid
-                              ? <ArrowUpRightIcon style={{ width: 16, height: 16 }} />
-                              : <ReceiptPercentIcon style={{ width: 16, height: 16 }} />}
-                          </div>
-                          <div className="activity-text">
-                            <div className="activity-name">{e.title || e.description}</div>
-                            <div className="activity-sub">{e.paidBy || e.paidby?.fullname} paid · {e.status}</div>
-                          </div>
-                          <div className={`activity-amount ${e.status === 'PENDING' ? 'owed' : ''}`}>
-                            {e.status === 'PENDING' ? '−' : '+'}₹{(e.amount || 0).toLocaleString('en-IN')}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* Groups + settlements */}
-              <div className="dashboard-grid">
-                <div className="panel">
-                  <div className="panel-head">
-                    <div className="panel-title">My groups</div>
-                    <button className="panel-link" onClick={() => navigate('/groups')}>View all</button>
-                  </div>
-                  {groups.length === 0 ? (
-                    <div className="empty-line">
-                      No groups yet —{' '}
-                      <span style={{ color: 'var(--primary)', cursor: 'pointer', fontWeight: 700 }} onClick={() => navigate('/groups')}>
-                        create one
-                      </span>
-                    </div>
-                  ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="data-table">
-                        <thead>
-                          <tr>
-                            <th>Group</th>
-                            <th>Code</th>
-                            <th>6-month trend</th>
-                            <th style={{ textAlign: 'right' }}>Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {groups.slice(0, 6).map(g => {
-                            const s = groupSummaries[g._id];
-                            const { totals, sparks } = sparkFor(g);
-                            return (
-                              <tr key={g._id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/groups/${g._id}`)}>
-                                <td>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-                                    <span className="glist-ic" style={{ width: 30, height: 30, borderRadius: 9, fontSize: 13, background: colorFor(g.name) }}>
-                                      {g.name[0]?.toUpperCase()}
-                                    </span>
-                                    <div>
-                                      <div style={{ fontWeight: 700 }}>{g.name}</div>
-                                      <div style={{ fontSize: 12, color: 'var(--on-surface-variant)', fontWeight: 500 }}>{g.members?.length} members</div>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td><span className="glist-code">{g.groupcode}</span></td>
-                                <td>
-                                  <div className="sparkline-row">
-                                    {sparks.map((h, j) => (
-                                      <div
-                                        key={j}
-                                        className={`spark-bar ${j === sparks.length - 1 ? 'highlight' : ''}`}
-                                        style={{ height: `${h * 100}%` }}
-                                        title={`₹${totals[j]}`}
-                                      />
-                                    ))}
-                                  </div>
-                                </td>
-                                <td className="num">{inr(s?.totalExpense)}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-
-                <div className="panel">
-                  <div className="panel-head">
-                    <div className="panel-title">Settlement summary</div>
-                    {allSettlements.length > 0 && <span className="panel-meta">{allSettlements.length} pending</span>}
-                  </div>
+                  <div className="panel-head"><div className="panel-title">To settle</div></div>
                   {allSettlements.length === 0 ? (
                     <div style={{ padding: 18 }}>
                       <span className="tag tag-green" style={{ padding: '8px 14px', fontSize: 13 }}>
@@ -326,27 +181,27 @@ export default function Dashboard() {
                         All settled up
                       </span>
                     </div>
-                  ) : (
-                    <table className="owe-table">
-                      <thead>
-                        <tr>
-                          <th>From</th>
-                          <th>To</th>
-                          <th style={{ textAlign: 'right' }}>Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {allSettlements.slice(0, 6).map((s, i) => (
-                          <tr key={i}>
-                            <td>{s.from}</td>
-                            <td style={{ color: 'var(--on-surface-variant)' }}>{s.to}</td>
-                            <td className="amount-owed">−{inr(s.amount)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
+                  ) : allSettlements.slice(0, 4).map((s, i) => (
+                    <div className="pay-row" key={i}>
+                      <span className="who">{s.from}<i>→</i>{s.to}</span>
+                      <b>{inr(s.amount)}</b>
+                    </div>
+                  ))}
                 </div>
+              </div>
+
+              <div className="panel">
+                <div className="panel-head"><div className="panel-title">Recent expenses</div></div>
+                {recentActivity.length === 0 ? (
+                  <div className="empty-line">Nothing yet. Open a group and add your first expense.</div>
+                ) : recentActivity.map((e, i) => (
+                  <div className="pay-row" key={i}>
+                    <span className="who">{e.title || e.description}</span>
+                    <b style={{ color: e.status === 'PENDING' ? 'var(--secondary)' : 'var(--success)' }}>
+                      {e.status === 'PENDING' ? '−' : '+'}{inr(e.amount)}
+                    </b>
+                  </div>
+                ))}
               </div>
             </>
           )}
