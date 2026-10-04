@@ -1,13 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Nav from '../components/layout/Nav';
 import Sidebar from '../components/layout/Sidebar';
-import { Modal, EmptyState, Spinner } from '../components/ui';
-import BottomNav from '../components/layout/BottomNav';
+import { Modal, Spinner } from '../components/ui';
 import { TabBar, TabContent } from '../components/ui/TabBar';
 import {
-  getGroupDetails, getGroupExpenses, getGroupSummary,
-  createExpense, deleteExpense, settleExpense, leaveGroup,
+  createExpense, deleteExpense, leaveGroup,
   initiateSettlement, confirmSettlement, cancelSettlement,
 } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -15,16 +13,58 @@ import { useToast } from '../context/ToastContext';
 import { useDataCache } from '../context/DataCache';
 import {
   ShareIcon,
-  PlusIcon,
   TrashIcon,
   CheckIcon,
   CheckCircleIcon,
   ArrowRightIcon,
   ClipboardDocumentIcon,
   ArrowLeftIcon,
-  InboxIcon,
-  ReceiptPercentIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  ArrowDownIcon,
+  InformationCircleIcon,
+  PaperAirplaneIcon,
+  PlusIcon,
+  XMarkIcon,
+  BanknotesIcon,
+  ClockIcon,
+  UserPlusIcon,
 } from '@heroicons/react/24/outline';
+
+/* ── Helpers ────────────────────────────────────────────────────────────────── */
+
+const G_COLORS = ['#0056c6', '#ff6b35', '#7a5cff', '#00a67e', '#e5486b', '#141414'];
+const SENDER_COLORS = ['#0056c6', '#c24a17', '#7a5cff', '#0a7a57', '#d6336c', '#8a6d00'];
+const groupColor = (s = '') => G_COLORS[(s.charCodeAt(0) || 0) % G_COLORS.length];
+const initial = (n = '?') => (n[0] || '?').toUpperCase();
+const money = (n) => `₹${(Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+const moneyRound = (n) => `₹${Math.round(Number(n) || 0).toLocaleString('en-IN')}`;
+
+function timeLabel(t) {
+  if (!t) return '';
+  return new Date(t).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+}
+
+function dayLabel(t) {
+  const d = new Date(t);
+  const today = new Date();
+  const yest = new Date(); yest.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return 'Today';
+  if (d.toDateString() === yest.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/** "Dinner 450" → { description: 'Dinner', amount: '450' } */
+function parseDraft(text) {
+  const m = text.match(/(\d[\d,]*(?:\.\d+)?)(?!.*\d)/);
+  if (!m) return { description: text.trim(), amount: '' };
+  const amount = m[1].replace(/,/g, '');
+  const description = (text.slice(0, m.index) + ' ' + text.slice(m.index + m[0].length))
+    .replace(/₹|\brs\.?\b|\binr\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/^[\s\-:,]+|[\s\-:,]+$/g, '');
+  return { description, amount };
+}
 
 export default function GroupDetail() {
   const { groupId } = useParams();
@@ -49,6 +89,14 @@ export default function GroupDetail() {
 
   const [confirmTarget, setConfirmTarget] = useState(null);
   const [confirming,    setConfirming]    = useState(false);
+
+  // chat UI state
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [menuId, setMenuId] = useState(null);
+  const [showJump, setShowJump] = useState(false);
+  const scrollRef = useRef(null);
+  const firstScroll = useRef(true);
 
   // Load from cache; only hits network when cache is empty or stale
   const loadData = useCallback(async ({ force = false } = {}) => {
@@ -194,9 +242,62 @@ export default function GroupDetail() {
     }));
   };
 
+
+  /* ── Chat UI effects ── */
+  const pendingCount = summary?.pendingSettlements?.length || 0;
+
+  // Keep the newest message in view (instantly on first load, smoothly after)
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el || loading) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: firstScroll.current ? 'auto' : 'smooth' });
+    firstScroll.current = false;
+  }, [loading, expenses.length, pendingCount]);
+
+  useEffect(() => {
+    if (!menuId) return undefined;
+    const close = () => setMenuId(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [menuId]);
+
+  useEffect(() => {
+    if (!infoOpen) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setInfoOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [infoOpen]);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setShowJump(el.scrollHeight - el.scrollTop - el.clientHeight > 260);
+  };
+
+  const jumpToBottom = () => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+
+  const openInfo = (tab = 'balances') => {
+    setTabSwitched(false);
+    setActiveTab(tab);
+    setInfoOpen(true);
+  };
+
+  const openExpenseForm = (prefill = {}) => {
+    setExpForm({ description: '', amount: '', paidby: '', splitamong: [], splitType: 'equal', customSplits: {}, ...prefill });
+    setExpenseModal(true);
+  };
+
+  const submitDraft = (e) => {
+    e.preventDefault();
+    const text = draft.trim();
+    if (!text) { openExpenseForm(); return; }
+    openExpenseForm(parseDraft(text));
+    setDraft('');
+  };
+
   if (loading) return (
-    <div className="app-page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <Nav showMenu onMenuClick={() => setSidebarOpen(true)} actions={<button className="btn btn-ghost btn-sm" onClick={() => navigate('/groups')}>← Groups</button>} />
+    <div className="app-page chat-page">
+      <Nav showMenu onMenuClick={() => setSidebarOpen(true)} />
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Spinner /></div>
     </div>
   );
@@ -219,236 +320,278 @@ export default function GroupDetail() {
   const myPending      = activeExpenses.filter(e => e.status === 'PENDING');
   const myPaid         = activeExpenses.filter(e => e.status === 'YOU PAID');
   const totalIOwe      = myPending.reduce((s, e) => s + (e.youOwe || 0), 0);
+  const totalOwedToMe  = myPaid.reduce((s, e) => s + (e.othersOweYou || 0), 0);
 
   const sharePreview = expForm.amount && expForm.splitamong.length
     ? (Number(expForm.amount) / expForm.splitamong.length).toFixed(2)
     : null;
 
+  const members = group?.members || [];
+  const memberColor = (id) => {
+    const i = members.findIndex(m => m._id === id);
+    return SENDER_COLORS[(i < 0 ? 0 : i) % SENDER_COLORS.length];
+  };
+  const memberLine = [
+    ...members.filter(m => m._id !== myId).map(m => (m.fullname || m.username || '?').split(' ')[0]),
+    ...(members.some(m => m._id === myId) ? ['You'] : []),
+  ].join(', ');
+
+  /* ── Build the chat timeline (oldest → newest) ── */
+  const items = [];
+  expenses.forEach((e, i) => items.push({
+    kind: e.isSettlementRecord ? 'settled' : 'expense',
+    e, i, key: e._id || `e${i}`, t: new Date(e.createdAt).getTime() || 0, sender: e.payerId,
+  }));
+  pendingSettlements.forEach((ps, i) => items.push({
+    kind: 'request', ps, i: 1e6 + i, key: `ps-${ps._id}`, t: new Date(ps.initiatedAt).getTime() || 0, sender: ps.fromId,
+  }));
+  // undated items (t = 0) sort by original order; undated payment requests go last
+  const sortKey = (it) => it.t || (it.kind === 'request' ? Number.MAX_SAFE_INTEGER : 0);
+  items.sort((a, b) => sortKey(a) - sortKey(b) || a.i - b.i);
+
+  const rows = [];
+  let prev = null;
+  let prevDay = null;
+  items.forEach((it) => {
+    const day = it.t ? new Date(it.t).toDateString() : null;
+    if (day && day !== prevDay) {
+      rows.push(<div className="chat-day" key={`day-${day}`}><span>{dayLabel(it.t)}</span></div>);
+      prev = null;
+      prevDay = day;
+    }
+    const talks = it.kind === 'expense' || it.kind === 'request';
+    const prevTalks = prev && (prev.kind === 'expense' || prev.kind === 'request');
+    const first = !(talks && prevTalks && prev.sender === it.sender);
+    const mine = it.sender === myId;
+
+    if (it.kind === 'expense') {
+      const canDelete = mine && !it.e.settled;
+      rows.push(
+        <ExpenseBubble
+          key={it.key} e={it.e} mine={mine} first={first} color={memberColor(it.sender)}
+          canDelete={canDelete} menuOpen={menuId === it.e._id}
+          onMenu={() => setMenuId(id => (id === it.e._id ? null : it.e._id))}
+          onDelete={() => { setMenuId(null); handleDeleteExpense(it.e._id); }}
+        />
+      );
+    } else if (it.kind === 'request') {
+      rows.push(
+        <RequestBubble
+          key={it.key} ps={it.ps} myId={myId} mine={mine} first={first} t={it.t} color={memberColor(it.sender)}
+          onConfirm={() => handleOpenConfirm(it.ps)} onCancel={() => handleCancelPending(it.ps)}
+        />
+      );
+    } else {
+      rows.push(<SettledNote key={it.key} e={it.e} myId={myId} t={it.t} />);
+    }
+    prev = it;
+  });
+
+  const netTone = myNetBalance > 0.01 ? 'owed' : myNetBalance < -0.01 ? 'owe' : 'even';
+  const netTitle = netTone === 'owed' ? `You're owed ${moneyRound(myNetBalance)}`
+    : netTone === 'owe' ? `You owe ${moneyRound(-myNetBalance)}`
+    : 'All settled up';
+  const netSub = settlements.length
+    ? `${settlements.length} payment${settlements.length !== 1 ? 's' : ''} left to settle`
+    : 'Nobody owes anything';
+
   return (
-    <div className="app-page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <Nav
-        showMenu
-        onMenuClick={() => setSidebarOpen(true)}
-        actions={
-          <>
-            <button
-              className="btn btn-ghost btn-sm"
-              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-              onClick={() => navigate('/groups')}
-            >
-              <ArrowLeftIcon style={{ width: 15, height: 15 }} />
-              Groups
-            </button>
-            <button
-              className="btn btn-primary btn-sm"
-              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-              onClick={() => {
-                setExpForm({ description: '', amount: '', paidby: '', splitamong: [], splitType: 'equal', customSplits: {} });
-                setExpenseModal(true);
-              }}
-            >
-              <PlusIcon style={{ width: 15, height: 15 }} />
-              Add
-            </button>
-            <button
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'var(--surface-container-high)',
-                border: 'none',
-                borderRadius: 10,
-                padding: '8px 10px',
-                cursor: 'pointer',
-                color: 'var(--on-surface-variant)',
-              }}
-              onClick={() => setShareModal(true)}
-              title="Share Group Code"
-            >
-              <ShareIcon style={{ width: 18, height: 18 }} />
-            </button>
-          </>
-        }
-      />
+    <div className="app-page chat-page">
+      <Nav showMenu onMenuClick={() => setSidebarOpen(true)} />
 
       <div className="app-layout">
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <div className="main-content">
 
-          {/* Group Header Card */}
-          <div
-            style={{
-              background: 'var(--primary)',
-              borderRadius: 24,
-              padding: '28px 32px',
-              marginBottom: 24,
-              position: 'relative',
-              overflow: 'hidden',
-            }}
-          >
-            <div style={{ position: 'absolute', right: -40, top: -40, width: 140, height: 140, background: 'rgba(255,255,255,0.08)', borderRadius: '50%', filter: 'blur(30px)', pointerEvents: 'none' }} />
-            <div style={{ position: 'absolute', right: 40, bottom: -60, width: 160, height: 160, background: 'rgba(253,108,0,0.15)', borderRadius: '50%', filter: 'blur(40px)', pointerEvents: 'none' }} />
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20, position: 'relative', zIndex: 1 }}>
-              <div>
-                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>
-                  Group
-                </div>
-                <div style={{ fontFamily: "'Be Vietnam Pro', sans-serif", fontSize: 28, fontWeight: 900, color: 'var(--on-primary)', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-                  {group?.name}
-                </div>
-                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: 'rgba(255,255,255,0.65)', marginTop: 6, fontWeight: 500 }}>
-                  {group?.members?.length === 1 ? '1 member' : `${group?.members?.length} members`}
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: 32, alignItems: 'center', flexWrap: 'wrap' }}>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>
-                    Total Expenses
-                  </div>
-                  <div style={{ fontFamily: "'Be Vietnam Pro', sans-serif", fontSize: 32, fontWeight: 900, color: 'var(--on-primary)', letterSpacing: '-0.03em' }}>
-                    ₹{totalExpense.toLocaleString('en-IN')}
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>
-                    Your Net Balance
-                  </div>
-                  <div style={{ fontFamily: "'Be Vietnam Pro', sans-serif", fontSize: 32, fontWeight: 900, letterSpacing: '-0.03em', color: myNetBalance > 0.01 ? '#86efac' : myNetBalance < -0.01 ? '#fda4af' : 'rgba(255,255,255,0.9)' }}>
-                    {myNetBalance > 0.01 ? '+' : myNetBalance < -0.01 ? '−' : ''}
-                    ₹{Math.abs(Math.round(myNetBalance)).toLocaleString('en-IN')}
-                  </div>
-                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2, fontWeight: 600 }}>
-                    {myNetBalance > 0.01 ? 'owed to you' : myNetBalance < -0.01 ? 'you owe' : 'all settled'}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Balance summary chips */}
-          {(totalIOwe > 0 || myPaid.length > 0) && (
-            <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-              <BalancePill color="var(--secondary-container)" bg="var(--secondary-fixed)" label="You Owe" value={`₹${Math.round(totalIOwe).toLocaleString('en-IN')}`} />
-              <BalancePill color="#15803d" bg="#dcfce7" label="Others Owe You" value={`₹${Math.round(myPaid.reduce((s, e) => s + (e.othersOweYou || 0), 0)).toLocaleString('en-IN')}`} />
-              <BalancePill color="var(--primary)" bg="var(--primary-fixed)" label="Group Total" value={`₹${Math.round(totalExpense).toLocaleString('en-IN')}`} />
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: 16 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              {/* Tab Bar */}
-              <TabBar
-                value={activeTab}
-                onChange={(id) => { setTabSwitched(true); setActiveTab(id); }}
-                tabs={[
-                  ['balances', `Balances${settlements.length ? ` (${settlements.length})` : ''}`],
-                  ['received', `Settlements${settlementRecords.length ? ` (${settlementRecords.length})` : ''}`],
-                  ['all',      `Records`],
-                ]}
-              />
-
-              <TabContent id={activeTab} animate={tabSwitched}>
-              {/* Balances Tab */}
-              {activeTab === 'balances' && (
-                <div>
-                  {settlements.length === 0 && pendingSettlements.length === 0 ? (
-                    <EmptyState icon={<CheckCircleIcon style={{ width: 32, height: 32, color: "var(--secondary)" }} />} text="All settled up — no one owes anything!" />
-                  ) : (
-                    <>
-                      {pendingSettlements.length > 0 && (
-                        <div style={{ marginBottom: 16 }}>
-                          <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: 8 }}>
-                            Awaiting confirmation
-                          </p>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            {pendingSettlements.map((ps) => (
-                              <PendingSettlementRow key={ps._id} ps={ps} myId={myId} onConfirm={() => handleOpenConfirm(ps)} onCancel={() => handleCancelPending(ps)} />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {settlements.length > 0 && (
-                        <>
-                          <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: 'var(--on-surface-variant)', marginBottom: 10, fontWeight: 600 }}>
-                            {settlements.length} net payment{settlements.length !== 1 ? 's' : ''} needed after cancelling all debts
-                          </p>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            {settlements.map((s, i) => {
-                              const isPending = pendingSettlements.some(ps => ps.fromId === s.fromId && ps.toId === s.toId);
-                              return (
-                                <SettlementRow key={i} s={s} myId={myId} isPending={isPending} isLoading={settlingId === s.fromId + s.toId} onSettle={() => handleInitiateSettle(s)} />
-                              );
-                            })}
-                          </div>
-                        </>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Settlements Tab */}
-              {activeTab === 'received' && (
-                <div className="tab-content">
-                  {settlementRecords.length === 0 ? (
-                    <EmptyState icon={<ReceiptPercentIcon style={{ width: 32, height: 32, color: "var(--on-surface-variant)" }} />} text="No settlements recorded yet." />
-                  ) : (
-                    <div className="transactions">
-                      {[...settlementRecords].reverse().map((e, i) => (
-                        <ExpenseRow key={i} expense={e} myId={myId} isSettled />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Records Tab */}
-              {activeTab === 'all' && (
-                <div className="tab-content">
-                  {regularExpenses.length === 0 ? (
-                    <EmptyState icon={<InboxIcon style={{ width: 32, height: 32, color: "var(--on-surface-variant)" }} />} text="No expenses yet. Add one above." />
-                  ) : (
-                    <div className="transactions">
-                      {[...regularExpenses].reverse().map((e, i) => (
-                        <ExpenseRow key={i} expense={e} myId={myId} onDelete={!e.settled ? () => handleDeleteExpense(e._id) : undefined} isSettled={e.settled} />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-              </TabContent>
-            </div>
-
-            {/* Members sidebar */}
-            <div style={{ width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }} className="detail-members-sidebar">
-              <div className="chart-card" style={{ padding: 20 }}>
-                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: 12 }}>
-                  Members ({group?.members?.length})
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {group?.members?.map(m => (
-                    <div className="member-item" key={m._id}>
-                      <div className="member-avatar" style={{ width: 32, height: 32, fontSize: 12 }}>
-                        {(m.fullname || m.username || '?')[0].toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="member-name" style={{ fontSize: 12 }}>{m.fullname || m.username}</div>
-                        {m.username && m.fullname && <div className="member-username">@{m.username}</div>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <button className="btn btn-ghost" style={{ width: '100%', marginTop: 12, justifyContent: 'center', fontSize: 12, color: 'var(--error)' }} onClick={handleLeave}>
-                  Leave Group
+        <div className="main-content chat-main">
+          <section className="chat-col" aria-label={`${group?.name} expenses`}>
+            {/* Header */}
+            <header className="chat-head">
+              <button className="chat-back" onClick={() => navigate('/groups')} aria-label="Back to groups">
+                <ArrowLeftIcon style={{ width: 20, height: 20 }} />
+              </button>
+              <button className="chat-id" onClick={() => openInfo('balances')} aria-label="Open group info">
+                <span className="chat-av" style={{ background: groupColor(group?.name) }}>{initial(group?.name)}</span>
+                <span className="chat-id-text">
+                  <span className="chat-title">{group?.name}</span>
+                  <span className="chat-sub">{memberLine}</span>
+                </span>
+              </button>
+              <div className="chat-head-actions">
+                <button className="icon-btn" onClick={() => setShareModal(true)} title="Invite with group code" aria-label="Invite with group code">
+                  <ShareIcon style={{ width: 20, height: 20 }} />
+                </button>
+                <button className="icon-btn" aria-pressed={infoOpen} onClick={() => (infoOpen ? setInfoOpen(false) : openInfo('balances'))} title="Group info" aria-label="Group info">
+                  <InformationCircleIcon style={{ width: 21, height: 21 }} />
                 </button>
               </div>
+            </header>
+
+            {/* Pinned balance */}
+            <button className={`chat-pin ${netTone}`} onClick={() => openInfo('balances')}>
+              <span className="pin-bar" />
+              <span className="pin-text">
+                <span className="pin-title">{netTitle}</span>
+                <span className="pin-sub">Group total {moneyRound(totalExpense)} · {netSub}</span>
+              </span>
+              <span className="pin-go">Balances <ChevronRightIcon style={{ width: 14, height: 14 }} /></span>
+            </button>
+
+            {/* Messages */}
+            <div className="chat-body">
+              <div className="chat-scroll" ref={scrollRef} onScroll={handleScroll} role="log" aria-label="Group expenses">
+                {rows.length === 0 ? (
+                  <div className="chat-note">No expenses yet. Type one below, like “Dinner 450”.</div>
+                ) : rows}
+              </div>
+              {showJump && (
+                <button className="chat-jump" onClick={jumpToBottom} aria-label="Jump to latest">
+                  <ArrowDownIcon style={{ width: 18, height: 18 }} />
+                </button>
+              )}
             </div>
-          </div>
+
+            {/* Composer */}
+            <form className="composer" onSubmit={submitDraft}>
+              <input
+                className="composer-input"
+                value={draft}
+                onChange={e => setDraft(e.target.value)}
+                placeholder="Add an expense, e.g. Dinner 450"
+                aria-label="Add an expense"
+                enterKeyHint="send"
+              />
+              <button
+                type="submit"
+                className={`composer-send ${draft.trim() ? 'ready' : ''}`}
+                aria-label={draft.trim() ? 'Continue to split details' : 'Open the expense form'}
+              >
+                {draft.trim()
+                  ? <PaperAirplaneIcon style={{ width: 20, height: 20 }} />
+                  : <PlusIcon style={{ width: 22, height: 22 }} />}
+              </button>
+            </form>
+          </section>
+
+          {/* Group info panel */}
+          {infoOpen && (
+            <>
+              <div className="info-backdrop" onClick={() => setInfoOpen(false)} />
+              <aside className="chat-info" aria-label="Group info">
+                <div className="info-head">
+                  <button className="icon-btn" onClick={() => setInfoOpen(false)} aria-label="Close group info">
+                    <XMarkIcon style={{ width: 20, height: 20 }} />
+                  </button>
+                  <span>Group info</span>
+                </div>
+
+                <div className="info-scroll">
+                  <div className="info-id">
+                    <span className="info-av" style={{ background: groupColor(group?.name) }}>{initial(group?.name)}</span>
+                    <div className="info-name">{group?.name}</div>
+                    <div className="info-count">{members.length === 1 ? '1 member' : `${members.length} members`}</div>
+                  </div>
+
+                  <div className="info-stats">
+                    <div><b>{moneyRound(totalExpense)}</b><span>Group total</span></div>
+                    <div><b className="c-owe">{moneyRound(totalIOwe)}</b><span>You owe</span></div>
+                    <div><b className="c-owed">{moneyRound(totalOwedToMe)}</b><span>Owed to you</span></div>
+                  </div>
+
+                  <TabBar
+                    value={activeTab}
+                    onChange={(id) => { setTabSwitched(true); setActiveTab(id); }}
+                    tabs={[
+                      ['balances', `Balances${settlements.length ? ` (${settlements.length})` : ''}`],
+                      ['settled',  `Settled${settlementRecords.length ? ` (${settlementRecords.length})` : ''}`],
+                      ['members',  `Members`],
+                    ]}
+                  />
+
+                  <TabContent id={activeTab} animate={tabSwitched}>
+                    {activeTab === 'balances' && (
+                      <div className="info-list">
+                        {settlements.length === 0 && pendingSettlements.length === 0 ? (
+                          <div className="info-empty">
+                            <CheckCircleIcon style={{ width: 28, height: 28, color: 'var(--success)' }} />
+                            All settled up. No one owes anything.
+                          </div>
+                        ) : (
+                          <>
+                            {pendingSettlements.length > 0 && (
+                              <>
+                                <div className="info-label">Awaiting confirmation</div>
+                                {pendingSettlements.map(ps => (
+                                  <PendingCard key={ps._id} ps={ps} myId={myId} onConfirm={() => handleOpenConfirm(ps)} onCancel={() => handleCancelPending(ps)} />
+                                ))}
+                              </>
+                            )}
+                            {settlements.length > 0 && (
+                              <>
+                                <div className="info-label">
+                                  {settlements.length} net payment{settlements.length !== 1 ? 's' : ''} needed after cancelling all debts
+                                </div>
+                                {settlements.map((s, i) => {
+                                  const isPending = pendingSettlements.some(ps => ps.fromId === s.fromId && ps.toId === s.toId);
+                                  return (
+                                    <PayCard key={i} s={s} myId={myId} isPending={isPending} isLoading={settlingId === s.fromId + s.toId} onSettle={() => handleInitiateSettle(s)} />
+                                  );
+                                })}
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {activeTab === 'settled' && (
+                      <div className="info-list">
+                        {settlementRecords.length === 0 ? (
+                          <div className="info-empty">No settlements recorded yet.</div>
+                        ) : [...settlementRecords].reverse().map((e, i) => (
+                          <div className="rec-row" key={e._id || i}>
+                            <span className="rec-ic"><CheckIcon style={{ width: 14, height: 14 }} /></span>
+                            <div className="rec-text">
+                              <div className="rec-who">{e.payerId === myId ? 'You' : e.paidBy}<ArrowRightIcon style={{ width: 12, height: 12 }} />{e.splitWith?.[0]}</div>
+                              <div className="rec-when">{e.createdAt ? `${dayLabel(e.createdAt)}, ${timeLabel(e.createdAt)}` : 'Settled'}</div>
+                            </div>
+                            <b className="rec-amt">{money(e.amount)}</b>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {activeTab === 'members' && (
+                      <div className="info-list">
+                        <button className="info-invite" onClick={() => setShareModal(true)}>
+                          <span className="info-invite-ic"><UserPlusIcon style={{ width: 18, height: 18 }} /></span>
+                          <span>
+                            <b>Invite with group code</b>
+                            <small>{group?.groupcode}</small>
+                          </span>
+                        </button>
+                        {members.map((m, i) => (
+                          <div className="member-row" key={m._id}>
+                            <span className="msg-av lg" style={{ background: SENDER_COLORS[i % SENDER_COLORS.length] }}>
+                              {initial(m.fullname || m.username)}
+                            </span>
+                            <div className="member-text">
+                              <div className="member-nm">{m.fullname || m.username}{m._id === myId && <em>You</em>}</div>
+                              {m.username && <div className="member-un">@{m.username}</div>}
+                            </div>
+                          </div>
+                        ))}
+                        <button className="info-leave" onClick={handleLeave}>Leave group</button>
+                      </div>
+                    )}
+                  </TabContent>
+                </div>
+              </aside>
+            </>
+          )}
         </div>
       </div>
 
+      {/* ── Modals (unchanged) ── */}
       {/* Add Expense Modal */}
       <Modal open={expenseModal} onClose={() => setExpenseModal(false)} title="New Expense" maxWidth={480}>
         <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: 'var(--on-surface-variant)', marginBottom: 20, fontWeight: 500 }}>
@@ -633,149 +776,172 @@ export default function GroupDetail() {
         )}
       </Modal>
 
-      <BottomNav />
     </div>
   );
 }
 
-/* ── Sub-Components ─────────────────────────────────────────────────────────── */
+/* ── Chat pieces ────────────────────────────────────────────────────────────── */
 
-function BalancePill({ color, bg, label, value }) {
+function Ticks({ done }) {
+  const p = 'M1 5.9 4.2 9 10 1.6';
   return (
-    <div style={{ flex: 1, minWidth: 130, background: bg, borderRadius: 16, padding: '14px 18px' }}>
-      <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color, opacity: 0.75, marginBottom: 4 }}>
-        {label}
-      </div>
-      <div style={{ fontFamily: "'Be Vietnam Pro', sans-serif", fontSize: 22, fontWeight: 800, color, letterSpacing: '-0.02em' }}>
-        {value}
-      </div>
-    </div>
+    <svg className={`ticks ${done ? 'done' : ''}`} width="17" height="11" viewBox="0 0 17 11" fill="none" role="img" aria-label={done ? 'Settled' : 'Not settled yet'}>
+      <path d={p} />
+      {done && <path d={p} transform="translate(5 0)" />}
+    </svg>
   );
 }
 
-function SettlementRow({ s, myId, isLoading, isPending, onSettle }) {
-  const iAmPayer = s.fromId === myId;
-  const iAmPayee = s.toId   === myId;
+function ExpenseBubble({ e, mine, first, color, canDelete, menuOpen, onMenu, onDelete }) {
+  const settled = !!e.settled || e.status === 'SETTLED';
+  const names = (e.splitWith || []).join(', ');
 
   return (
-    <div
-      className="settlement-row"
-      style={{
-        background:   iAmPayer ? 'rgba(253,108,0,0.05)' : iAmPayee ? 'rgba(21,128,61,0.05)' : 'var(--surface-container-low)',
-        border:       '1.5px solid',
-        borderColor:  iAmPayer ? 'rgba(253,108,0,0.2)'  : iAmPayee ? 'rgba(21,128,61,0.2)'  : 'var(--surface-container-high)',
-        borderRadius: 16,
-        opacity:      isPending ? 0.55 : 1,
-      }}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: iAmPayer ? 'var(--secondary-container)' : 'var(--on-surface)' }}>
-            {s.from}{iAmPayer ? ' (you)' : ''}
-          </span>
-          <ArrowRightIcon style={{ width: 14, height: 14, color: 'var(--outline)', flexShrink: 0 }} />
-          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: iAmPayee ? '#15803d' : 'var(--on-surface)' }}>
-            {s.to}{iAmPayee ? ' (you)' : ''}
-          </span>
-        </div>
-        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: 'var(--on-surface-variant)', fontWeight: 500 }}>
-          {isPending
-            ? 'Waiting for recipient to confirm…'
-            : iAmPayer
-              ? 'you need to pay this — click Settle to send a request'
-              : iAmPayee
-                ? 'you will receive this'
-                : 'transfer required'}
-        </div>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        {iAmPayer && !isPending && (
-          <button onClick={onSettle} disabled={isLoading}
-            style={{ padding: '7px 16px', borderRadius: 12, border: '1.5px solid var(--primary)', background: 'var(--primary-fixed)', color: 'var(--primary)', fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, cursor: 'pointer', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 6 }}>
-            {isLoading ? <Spinner /> : <><CheckIcon style={{ width: 14, height: 14 }} />Settle</>}
-          </button>
+    <div className={`msg-row ${mine ? 'mine' : ''} ${first ? 'first' : ''}`}>
+      {!mine && (first
+        ? <span className="msg-av" style={{ background: color }}>{initial(e.paidBy)}</span>
+        : <span className="msg-av ghost" />)}
+
+      <div className={`bubble ${first ? (mine ? 'tail-out' : 'tail-in') : ''}`}>
+        {!mine && first && <div className="b-name" style={{ color }}>{e.paidBy}</div>}
+
+        {canDelete && (
+          <>
+            <button className="b-menu-btn" onClick={(ev) => { ev.stopPropagation(); onMenu(); }} aria-label="Expense options" aria-expanded={menuOpen}>
+              <ChevronDownIcon style={{ width: 16, height: 16 }} />
+            </button>
+            {menuOpen && (
+              <div className="b-menu" onClick={(ev) => ev.stopPropagation()}>
+                <button className="b-menu-item" onClick={onDelete}>
+                  <TrashIcon style={{ width: 16, height: 16 }} /> Delete expense
+                </button>
+              </div>
+            )}
+          </>
         )}
-        <div style={{ fontFamily: "'Be Vietnam Pro', sans-serif", fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', color: iAmPayer ? 'var(--secondary-container)' : iAmPayee ? '#15803d' : 'var(--on-surface)' }}>
-          ₹{Math.round(s.amount).toLocaleString('en-IN')}
+
+        <div className="b-title">{e.title}</div>
+        <div className="b-amt">{money(e.amount)}</div>
+        <div className="b-meta">{e.splitType === 'custom' ? 'Custom split' : 'Split equally'} between {names}</div>
+
+        {settled ? (
+          <span className="b-chip even"><CheckIcon style={{ width: 12, height: 12 }} /> Settled</span>
+        ) : mine && e.othersOweYou > 0 ? (
+          <span className="b-chip owed">Others owe you {money(e.othersOweYou)}</span>
+        ) : !mine && e.youOwe > 0 ? (
+          <span className="b-chip owe">Your share {money(e.youOwe)}</span>
+        ) : null}
+
+        <div className="b-foot">
+          {timeLabel(e.createdAt)}
+          {mine && <Ticks done={settled} />}
         </div>
       </div>
     </div>
   );
 }
 
-function PendingSettlementRow({ ps, myId, onConfirm, onCancel }) {
+function RequestBubble({ ps, myId, mine, first, t, color, onConfirm, onCancel }) {
   const iAmDebtor   = ps.fromId === myId;
   const iAmCreditor = ps.toId   === myId;
+  const route = iAmDebtor ? `You → ${ps.to}` : iAmCreditor ? `${ps.from} → You` : `${ps.from} → ${ps.to}`;
 
   return (
-    <div style={{ background: iAmCreditor ? 'rgba(21,128,61,0.07)' : 'rgba(253,108,0,0.05)', border: '1.5px solid', borderColor: iAmCreditor ? 'rgba(21,128,61,0.3)' : 'rgba(253,108,0,0.25)', borderRadius: 16, padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: iAmDebtor ? 'var(--secondary-container)' : 'var(--on-surface)' }}>
-            {ps.from}{iAmDebtor ? ' (you)' : ''}
-          </span>
-          <ArrowRightIcon style={{ width: 13, height: 13, color: 'var(--outline)' }} />
-          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: iAmCreditor ? '#15803d' : 'var(--on-surface)' }}>
-            {ps.to}{iAmCreditor ? ' (you)' : ''}
-          </span>
-          <span style={{ fontFamily: "'Be Vietnam Pro', sans-serif", fontWeight: 800, fontSize: 16, letterSpacing: '-0.02em', color: iAmCreditor ? '#15803d' : 'var(--on-surface)' }}>
-            · ₹{Math.round(ps.amount).toLocaleString('en-IN')}
-          </span>
+    <div className={`msg-row ${mine ? 'mine' : ''} ${first ? 'first' : ''}`}>
+      {!mine && (first
+        ? <span className="msg-av" style={{ background: color }}>{initial(ps.from)}</span>
+        : <span className="msg-av ghost" />)}
+
+      <div className={`bubble request ${first ? (mine ? 'tail-out' : 'tail-in') : ''}`}>
+        {!mine && first && <div className="b-name" style={{ color }}>{ps.from}</div>}
+        <div className="b-kicker"><BanknotesIcon style={{ width: 15, height: 15 }} /> Payment request</div>
+        <div className="b-amt">{money(ps.amount)}</div>
+        <div className="b-meta">{route}</div>
+        <div className="b-meta">
+          {iAmCreditor ? 'Marked as paid. Confirm only if you received it.' : `Waiting for ${ps.to} to confirm receipt`}
         </div>
-        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: 'var(--on-surface-variant)' }}>
-          {iAmCreditor ? 'Confirm you received this payment' : 'Waiting for recipient to confirm receipt'}
+        <div className="b-actions">
+          {iAmCreditor && (
+            <button className="b-btn go" onClick={onConfirm}><CheckIcon style={{ width: 14, height: 14 }} /> Confirm</button>
+          )}
+          <button className="b-btn" onClick={onCancel}>Cancel</button>
         </div>
-      </div>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-        {iAmCreditor && (
-          <button onClick={onConfirm}
-            style={{ padding: '7px 16px', borderRadius: 12, border: '1.5px solid #15803d', background: 'rgba(21,128,61,0.1)', color: '#15803d', fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <CheckIcon style={{ width: 13, height: 13 }} />
-            Confirm
-          </button>
-        )}
-        <button onClick={onCancel}
-          style={{ padding: '7px 12px', borderRadius: 12, border: '1.5px solid var(--outline-variant)', background: 'transparent', color: 'var(--on-surface-variant)', fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
-          Cancel
-        </button>
+        <div className="b-foot">
+          {timeLabel(t)}
+          <ClockIcon style={{ width: 12, height: 12 }} aria-label="Pending" />
+        </div>
       </div>
     </div>
   );
 }
 
-function ExpenseRow({ expense, onDelete, isSettled, myId }) {
-  const isPayer = expense.status === 'YOU PAID';
-  const canDelete = onDelete && expense.payerId === myId && !isSettled;
-
+function SettledNote({ e, myId, t }) {
+  const to = e.splitWith?.[0] || 'someone';
+  const text = e.payerId === myId
+    ? `You paid ${to} ${money(e.amount)}`
+    : to === 'You'
+      ? `${e.paidBy} paid you ${money(e.amount)}`
+      : `${e.paidBy} paid ${to} ${money(e.amount)}`;
   return (
-    <div className="expense-row" style={{ opacity: isSettled ? 0.6 : 1, background: 'transparent' }}>
-      <div className="expense-icon" style={{ background: isPayer ? 'var(--primary-fixed)' : isSettled ? 'var(--surface-container-high)' : 'var(--secondary-fixed)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {isPayer ? '💸' : isSettled ? <CheckIcon style={{ width: 16, height: 16, color: 'var(--on-surface-variant)' }} /> : '📋'}
+    <div className="chat-note settled">
+      <CheckCircleIcon style={{ width: 15, height: 15 }} />
+      <span>{text}</span>
+      {t ? <i>{timeLabel(t)}</i> : null}
+    </div>
+  );
+}
+
+/* ── Group info pieces ──────────────────────────────────────────────────────── */
+
+function PayCard({ s, myId, isLoading, isPending, onSettle }) {
+  const iAmPayer = s.fromId === myId;
+  const iAmPayee = s.toId   === myId;
+  const tone = iAmPayer ? 'out' : iAmPayee ? 'in' : '';
+  return (
+    <div className={`pay-card ${tone}`} style={{ opacity: isPending ? 0.55 : 1 }}>
+      <div className="pay-main">
+        <div className="pay-who">
+          <span>{s.from}{iAmPayer ? ' (you)' : ''}</span>
+          <span className="to"><ArrowRightIcon style={{ width: 13, height: 13, flexShrink: 0 }} />{s.to}{iAmPayee ? ' (you)' : ''}</span>
+        </div>
+        <div className="pay-note">
+          {isPending ? 'Waiting for recipient to confirm'
+            : iAmPayer ? 'You need to pay this. Tap Settle to send a request.'
+            : iAmPayee ? 'You will receive this'
+            : 'Transfer required'}
+        </div>
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="expense-title">{expense.title}</div>
-        <div className="expense-meta">{expense.paidBy} paid · split with: {expense.splitWith?.join(', ')}</div>
-        {!isPayer && !isSettled && expense.youOwe > 0 && (
-          <div style={{ marginTop: 4, fontSize: 12, fontWeight: 700, color: 'var(--secondary-container)' }}>
-            Your share: −₹{expense.youOwe.toFixed(2)}
-          </div>
-        )}
-        {isPayer && !isSettled && expense.othersOweYou > 0 && (
-          <div style={{ marginTop: 4, fontSize: 12, fontWeight: 700, color: '#15803d' }}>
-            Others owe you: +₹{expense.othersOweYou.toFixed(2)}
-          </div>
-        )}
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-        {canDelete && (
-          <button onClick={onDelete}
-            style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid var(--error-container)', background: 'var(--error-container)', color: 'var(--on-error-container)', fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <TrashIcon style={{ width: 12, height: 12 }} />
-            Delete
+      <div className="pay-side">
+        <b className="pay-amt">{moneyRound(s.amount)}</b>
+        {iAmPayer && !isPending && (
+          <button className="pay-btn" onClick={onSettle} disabled={isLoading}>
+            {isLoading ? <Spinner /> : <><CheckIcon style={{ width: 13, height: 13 }} /> Settle</>}
           </button>
         )}
-        <div className={`expense-amount ${!isPayer && !isSettled ? 'you-owe' : ''}`} style={{ color: isPayer && !isSettled ? 'var(--primary)' : undefined }}>
-          ₹{(expense.amount || 0).toLocaleString('en-IN')}
+      </div>
+    </div>
+  );
+}
+
+function PendingCard({ ps, myId, onConfirm, onCancel }) {
+  const iAmDebtor   = ps.fromId === myId;
+  const iAmCreditor = ps.toId   === myId;
+  return (
+    <div className={`pay-card ${iAmCreditor ? 'in' : 'out'}`}>
+      <div className="pay-main">
+        <div className="pay-who">
+          <span>{ps.from}{iAmDebtor ? ' (you)' : ''}</span>
+          <span className="to"><ArrowRightIcon style={{ width: 13, height: 13, flexShrink: 0 }} />{ps.to}{iAmCreditor ? ' (you)' : ''}</span>
+        </div>
+        <div className="pay-note">{iAmCreditor ? 'Confirm you received this payment' : 'Waiting for recipient to confirm receipt'}</div>
+      </div>
+      <div className="pay-side">
+        <b className="pay-amt">{moneyRound(ps.amount)}</b>
+        <div className="pay-btns">
+          {iAmCreditor && (
+            <button className="pay-btn go" onClick={onConfirm}><CheckIcon style={{ width: 13, height: 13 }} /> Confirm</button>
+          )}
+          <button className="pay-btn plain" onClick={onCancel}>Cancel</button>
         </div>
       </div>
     </div>

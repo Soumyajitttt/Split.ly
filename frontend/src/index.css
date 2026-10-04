@@ -543,3 +543,190 @@ input[type=number].no-spinner { -moz-appearance: textfield; appearance: textfiel
 .pay-row .who i { font-style: normal; color: var(--outline); margin: 0 6px; }
 .pay-row b { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; letter-spacing: -0.02em; }
 .bar-chart .bar.accent { background: var(--secondary-container); }
+
+/* ═════════ Group detail as a chat ═════════ */
+.chat-page { height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+.chat-page .app-layout { flex: 1; min-height: 0; }
+.chat-page .sidebar { height: 100%; }
+.main-content.chat-main { padding: 0; display: flex; min-height: 0; min-width: 0; }
+
+.chat-col {
+  --bub-in: #ffffff;
+  --bub-out: #d6e4ff;
+  flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0;
+  background: #f2f0ea;
+}
+
+/* header */
+.chat-head { height: 64px; flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 0 12px 0 16px; background: #fff; border-bottom: 1px solid var(--line); }
+.chat-back { display: none; width: 40px; height: 40px; margin-left: -8px; border: none; background: none; border-radius: 50%; color: var(--ink); cursor: pointer; align-items: center; justify-content: center; }
+.chat-back:hover { background: rgba(17,17,19,.06); }
+.chat-id { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 6px 8px 6px 0; border: none; background: none; text-align: left; cursor: pointer; font-family: inherit; border-radius: 12px; }
+.chat-av { width: 42px; height: 42px; border-radius: 13px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; font-size: 17px; }
+.chat-id-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.chat-title { font-family: 'Be Vietnam Pro', sans-serif; font-size: 16px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-sub { font-size: 12.5px; font-weight: 500; color: var(--on-surface-variant); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-head-actions { display: flex; align-items: center; gap: 2px; }
+.icon-btn { width: 40px; height: 40px; border: none; background: none; border-radius: 50%; color: var(--on-surface-variant); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s, color .15s; }
+.icon-btn:hover { background: rgba(17,17,19,.06); color: var(--ink); }
+.icon-btn[aria-pressed="true"] { background: var(--primary-fixed); color: var(--primary); }
+
+/* pinned balance */
+.chat-pin { flex-shrink: 0; display: flex; align-items: center; gap: 12px; width: 100%; padding: 9px 16px 9px 14px; background: rgba(255,255,255,.94); border: none; border-bottom: 1px solid var(--line); cursor: pointer; text-align: left; font-family: inherit; transition: background .15s; }
+.chat-pin:hover { background: #fff; }
+.pin-bar { width: 3px; align-self: stretch; border-radius: 3px; background: var(--outline); }
+.chat-pin.owe .pin-bar { background: var(--secondary-container); }
+.chat-pin.owed .pin-bar { background: #12a373; }
+.pin-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.pin-title { font-size: 13.5px; font-weight: 800; color: var(--ink); }
+.chat-pin.owe .pin-title { color: var(--secondary); }
+.chat-pin.owed .pin-title { color: var(--success); }
+.pin-sub { font-size: 12px; font-weight: 500; color: var(--on-surface-variant); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pin-go { display: inline-flex; align-items: center; gap: 2px; font-size: 12.5px; font-weight: 700; color: var(--primary); flex-shrink: 0; }
+
+/* message area + wallpaper */
+.chat-body { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; background-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22220%22 height=%22220%22 viewBox=%220 0 220 220%22 fill=%22none%22 stroke=%22%23111113%22 stroke-opacity=%22.055%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E %3Cg transform=%22rotate(-12 34 36)%22%3E%3Ccircle cx=%2234%22 cy=%2236%22 r=%2214%22/%3E%3Cpath d=%22M28 31h12M28 36h12M30 31c5 0 7 3 4 7l-5 5%22/%3E%3C/g%3E %3Cg transform=%22rotate(8 130 38)%22%3E%3Cpath d=%22M116 18h28v40l-4.7-3.4-4.7 3.4-4.6-3.4-4.7 3.4-4.6-3.4-4.7 3.4z%22/%3E%3Cpath d=%22M122 28h16M122 35h16M122 42h10%22/%3E%3C/g%3E %3Cpath d=%22M188 30v18M179 39h18%22/%3E %3Cg transform=%22rotate(10 62 120)%22%3E%3Cpath d=%22M40 112h34m-6-6 6 6-6 6M84 128H50m6-6-6 6 6 6%22/%3E%3C/g%3E %3Cg transform=%22rotate(-8 150 120)%22%3E%3Ccircle cx=%22150%22 cy=%22120%22 r=%2213%22/%3E%3Cpath d=%22M150 120V107M150 120l11 6.5%22/%3E%3C/g%3E %3Ccircle cx=%22196%22 cy=%22108%22 r=%223%22/%3E%3Ccircle cx=%2220%22 cy=%22186%22 r=%223%22/%3E %3Cg transform=%22rotate(14 100 182)%22%3E%3Crect x=%2282%22 y=%22168%22 width=%2236%22 height=%2224%22 rx=%224%22/%3E%3Ccircle cx=%22100%22 cy=%22180%22 r=%226%22/%3E%3C/g%3E %3Cg transform=%22rotate(-10 176 186)%22%3E%3Ccircle cx=%22176%22 cy=%22186%22 r=%2213%22/%3E%3Cpath d=%22M170 181h12M170 186h12M172 181c5 0 7 3 4 7l-5 5%22/%3E%3C/g%3E %3Cpath d=%22M54 70v12M48 76h12%22/%3E%3Cpath d=%22M104 88l8 8M112 88l-8 8%22/%3E %3C/svg%3E"); background-size: 220px 220px; }
+.chat-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 14px max(14px, calc((100% - 860px) / 2)) 14px; display: flex; flex-direction: column; }
+.chat-scroll > :first-child { margin-top: auto; }
+
+.chat-day { align-self: center; margin: 14px 0 8px; }
+.chat-day span { display: inline-block; padding: 4px 12px; border-radius: 9px; background: rgba(255,255,255,.92); box-shadow: 0 1px 0 rgba(17,17,19,.08); font-size: 12px; font-weight: 700; color: var(--on-surface-variant); }
+.chat-note { align-self: center; max-width: 88%; margin: 10px 0 4px; padding: 6px 13px; border-radius: 10px; background: rgba(255,255,255,.92); box-shadow: 0 1px 0 rgba(17,17,19,.08); font-size: 12.5px; font-weight: 600; color: var(--ink-2); text-align: center; line-height: 1.45; }
+.chat-note.settled { display: inline-flex; align-items: center; gap: 7px; background: #e3f6ec; color: #0b5d43; }
+.chat-note.settled svg { color: var(--success); flex-shrink: 0; }
+.chat-note.settled i { font-style: normal; font-size: 11px; font-weight: 600; color: rgba(11,93,67,.65); }
+
+.msg-row { display: flex; align-items: flex-end; margin-top: 3px; padding-right: 14%; }
+.msg-row.first { margin-top: 10px; }
+.msg-row.mine { justify-content: flex-end; padding-right: 0; padding-left: 14%; }
+.msg-av { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; margin-right: 11px; align-self: flex-start; display: flex; align-items: center; justify-content: center; color: #fff; font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; font-size: 12px; }
+.msg-av.ghost { visibility: hidden; }
+.msg-av.lg { width: 38px; height: 38px; font-size: 14px; margin-right: 0; align-self: center; }
+
+.bubble { --bub: var(--bub-in); position: relative; min-width: 168px; max-width: 360px; padding: 7px 11px 5px; border-radius: 12px; background: var(--bub); box-shadow: 0 1px 1px rgba(17,17,19,.12); word-break: break-word; }
+.msg-row.mine .bubble { --bub: var(--bub-out); }
+.bubble.tail-in { border-top-left-radius: 3px; }
+.bubble.tail-out { border-top-right-radius: 3px; }
+.bubble.tail-in::before, .bubble.tail-out::before { content: ''; position: absolute; top: 0; width: 9px; height: 13px; background: var(--bub); }
+.bubble.tail-in::before { left: -8px; clip-path: polygon(100% 0, 100% 100%, 0 0); }
+.bubble.tail-out::before { right: -8px; clip-path: polygon(0 0, 0 100%, 100% 0); }
+
+.b-name { font-size: 12.5px; font-weight: 800; margin-bottom: 2px; }
+.b-kicker { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--primary); }
+.b-title { font-size: 14.5px; font-weight: 600; color: var(--ink); line-height: 1.35; padding-right: 18px; }
+.b-amt { font-family: 'Be Vietnam Pro', sans-serif; font-size: 26px; font-weight: 800; letter-spacing: -0.045em; line-height: 1.15; color: var(--ink); margin-top: 1px; }
+.b-kicker + .b-amt { margin-top: 3px; }
+.b-meta { font-size: 12px; font-weight: 500; color: var(--on-surface-variant); margin-top: 3px; line-height: 1.4; }
+.b-chip { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.b-chip.owe { background: rgba(194,74,23,.12); color: var(--secondary); }
+.b-chip.owed { background: rgba(10,122,87,.13); color: var(--success); }
+.b-chip.even { background: rgba(17,17,19,.07); color: var(--on-surface-variant); }
+.b-foot { display: flex; justify-content: flex-end; align-items: center; gap: 4px; margin-top: 1px; font-size: 11px; font-weight: 600; color: var(--outline); }
+.msg-row.mine .b-foot { color: #6c7fa8; }
+.ticks { stroke: #8a8e9a; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.ticks.done { stroke: #2a7dff; }
+
+.b-actions { display: flex; gap: 8px; margin-top: 10px; }
+.b-btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 8px 12px; border-radius: 999px; border: 1.5px solid var(--line-strong); background: rgba(255,255,255,.7); color: var(--ink-2); font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: background .15s, border-color .15s; }
+.b-btn:hover { background: #fff; border-color: var(--ink); }
+.b-btn.go { background: var(--success); border-color: var(--success); color: #fff; }
+.b-btn.go:hover { background: #086a4b; border-color: #086a4b; }
+
+.b-menu-btn { position: absolute; top: 3px; right: 4px; width: 24px; height: 24px; border: none; border-radius: 50%; background: var(--bub); color: var(--on-surface-variant); cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .15s; }
+.bubble:hover .b-menu-btn, .b-menu-btn:focus-visible, .b-menu-btn[aria-expanded="true"] { opacity: 1; }
+@media (hover: none) { .b-menu-btn { opacity: .75; } }
+.b-menu { position: absolute; top: 28px; right: 4px; z-index: 6; min-width: 164px; padding: 5px; border-radius: 12px; background: #fff; border: 1px solid var(--line); box-shadow: var(--shadow-elevated); animation: modalUp .18s var(--ease) both; }
+.b-menu-item { width: 100%; display: flex; align-items: center; gap: 9px; padding: 9px 10px; border: none; background: none; border-radius: 8px; font-family: inherit; font-size: 13.5px; font-weight: 600; color: var(--error); cursor: pointer; }
+.b-menu-item:hover { background: var(--error-container); }
+
+.chat-jump { position: absolute; right: 18px; bottom: 14px; width: 40px; height: 40px; border-radius: 50%; border: none; background: #fff; color: var(--ink-2); box-shadow: 0 2px 10px rgba(17,17,19,.22); cursor: pointer; display: flex; align-items: center; justify-content: center; animation: fadeIn .15s ease both; }
+.chat-jump:hover { color: var(--ink); }
+
+/* composer */
+.composer { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px)); background: #f7f6f2; border-top: 1px solid var(--line); }
+.composer-input { flex: 1; min-width: 0; height: 46px; padding: 0 20px; border: none; border-radius: 999px; background: #fff; box-shadow: 0 0 0 1px var(--line-strong); font-family: inherit; font-size: 14.5px; font-weight: 500; color: var(--ink); outline: none; transition: box-shadow .15s; }
+.composer-input::placeholder { color: var(--outline); }
+.composer-input:focus { box-shadow: 0 0 0 2px var(--primary); }
+.composer-send { width: 46px; height: 46px; flex-shrink: 0; border: none; border-radius: 50%; background: var(--ink); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .2s, transform .2s var(--ease); }
+.composer-send.ready { background: var(--primary); }
+.composer-send:hover { transform: scale(1.05); }
+.composer-send:active { transform: scale(.95); }
+.composer-send.ready svg { transform: translateX(1px) rotate(-12deg); }
+
+/* group info panel */
+.chat-info { width: 360px; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; background: #fff; border-left: 1px solid var(--line); animation: infoIn .3s var(--ease) both; }
+@keyframes infoIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+.info-backdrop { display: none; }
+.info-head { height: 64px; flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 0 12px; border-bottom: 1px solid var(--line); font-family: 'Be Vietnam Pro', sans-serif; font-size: 16px; font-weight: 700; letter-spacing: -0.02em; }
+.info-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 24px 18px 28px; }
+.info-id { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 20px; }
+.info-av { width: 84px; height: 84px; border-radius: 26px; display: flex; align-items: center; justify-content: center; color: #fff; font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; font-size: 34px; }
+.info-name { font-family: 'Be Vietnam Pro', sans-serif; font-size: 22px; font-weight: 800; letter-spacing: -0.035em; margin-top: 12px; word-break: break-word; }
+.info-count { font-size: 13px; font-weight: 600; color: var(--on-surface-variant); margin-top: 3px; }
+.info-stats { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 18px; overflow: hidden; }
+.info-stats > div { padding: 12px 8px; text-align: center; border-right: 1px solid var(--line); min-width: 0; }
+.info-stats > div:last-child { border-right: none; }
+.info-stats b { display: block; font-family: 'Be Vietnam Pro', sans-serif; font-size: 17px; font-weight: 800; letter-spacing: -0.03em; }
+.info-stats span { display: block; font-size: 11.5px; font-weight: 600; color: var(--on-surface-variant); margin-top: 3px; }
+.c-owe { color: var(--secondary); } .c-owed { color: var(--success); }
+.chat-info .tab-bar { width: 100%; margin-bottom: 16px; }
+.chat-info .tab { flex: 1; padding: 8px 6px; }
+.info-list { display: flex; flex-direction: column; gap: 8px; }
+.info-label { font-size: 12.5px; font-weight: 700; color: var(--on-surface-variant); margin: 4px 2px 0; }
+.info-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 12px; text-align: center; font-size: 13.5px; font-weight: 600; color: var(--on-surface-variant); }
+
+.pay-card { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface-container-low); }
+.pay-card.out { background: rgba(255,107,53,.07); border-color: rgba(194,74,23,.22); }
+.pay-card.in { background: rgba(10,122,87,.07); border-color: rgba(10,122,87,.24); }
+.pay-main { min-width: 0; flex: 1; }
+.pay-who { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; font-size: 13.5px; font-weight: 700; color: var(--ink); line-height: 1.35; }
+.pay-card.out .pay-who span:first-child { color: var(--secondary); }
+.pay-card.in .pay-who .to { color: var(--success); }
+.pay-who .to { display: inline-flex; align-items: center; gap: 5px; }
+.pay-note { font-size: 12px; font-weight: 500; color: var(--on-surface-variant); margin-top: 3px; line-height: 1.4; }
+.pay-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; }
+.pay-amt { font-family: 'Be Vietnam Pro', sans-serif; font-size: 19px; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.pay-card.out .pay-amt { color: var(--secondary); } .pay-card.in .pay-amt { color: var(--success); }
+.pay-btns { display: flex; gap: 6px; }
+.pay-btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 13px; border-radius: 999px; border: 1.5px solid var(--primary); background: var(--primary-fixed); color: var(--primary); font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.pay-btn:disabled { opacity: .6; cursor: default; }
+.pay-btn.go { border-color: var(--success); background: var(--success-bg); color: var(--success); }
+.pay-btn.plain { border-color: var(--line-strong); background: #fff; color: var(--on-surface-variant); }
+
+.rec-row { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--line); }
+.rec-row:last-child { border-bottom: none; }
+.rec-ic { width: 28px; height: 28px; border-radius: 50%; background: var(--success-bg); color: var(--success); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.rec-text { flex: 1; min-width: 0; }
+.rec-who { display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.rec-when { font-size: 12px; font-weight: 500; color: var(--on-surface-variant); margin-top: 2px; }
+.rec-amt { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+
+.info-invite { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border: none; background: none; text-align: left; font-family: inherit; cursor: pointer; border-radius: 12px; }
+.info-invite:hover { background: var(--surface-container-low); }
+.info-invite-ic { width: 38px; height: 38px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.info-invite b { display: block; font-size: 14px; font-weight: 700; color: var(--ink); }
+.info-invite small { display: block; margin-top: 2px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--on-surface-variant); }
+.member-row { display: flex; align-items: center; gap: 12px; padding: 8px 4px; }
+.member-text { min-width: 0; }
+.member-nm { font-size: 14px; font-weight: 700; color: var(--ink); word-break: break-word; }
+.member-nm em { font-style: normal; margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--primary-fixed); color: var(--primary); font-size: 11px; font-weight: 700; }
+.member-un { font-size: 12px; font-weight: 500; color: var(--on-surface-variant); margin-top: 1px; word-break: break-all; }
+.info-leave { margin-top: 14px; padding: 12px; border: 1px solid rgba(186,26,26,.25); border-radius: 12px; background: none; color: var(--error); font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+.info-leave:hover { background: var(--error-container); }
+
+/* narrower screens: info becomes an overlay sheet */
+@media (max-width: 1100px) {
+  .chat-info { position: fixed; top: 0; right: 0; bottom: 0; width: min(380px, 100%); z-index: 220; box-shadow: -18px 0 50px rgba(17,17,19,.18); }
+  .info-backdrop { display: block; position: fixed; inset: 0; z-index: 210; background: rgba(17,17,19,.32); animation: fadeIn .2s ease both; }
+}
+@media (max-width: 768px) {
+  .chat-page > nav { display: none; }
+  .chat-back { display: flex; }
+  .chat-head { padding-left: 14px; }
+  .chat-scroll { padding: 10px 10px 10px; }
+  .msg-row { padding-right: 8%; }
+  .msg-row.mine { padding-left: 8%; }
+  .bubble { max-width: 100%; }
+  .chat-info { width: 100%; }
+  .b-amt { font-size: 24px; }
+}
