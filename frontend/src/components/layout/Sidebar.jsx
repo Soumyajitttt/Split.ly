@@ -50,7 +50,7 @@ export default function Sidebar({ open, onClose }) {
   const [dragging, setDragging] = useState(false);
   const [groups, setGroups] = useState([]);
   const widthRef = useRef(width);
-  useEffect(() => { widthRef.current = width; }, [width]);
+  widthRef.current = width;
 
   // persist layout
   useEffect(() => {
@@ -133,6 +133,7 @@ export default function Sidebar({ open, onClose }) {
 
         <div className="sidebar-scroll">
           <div className="sidebar-top">
+            <span className="sidebar-ws">Workspace</span>
             <button
               className="sidebar-collapse"
               onClick={toggle}
@@ -187,7 +188,9 @@ export default function Sidebar({ open, onClose }) {
               <div className="sidebar-more" onClick={() => go('/groups')}>View all {groups.length}</div>
             )}
             {groups.length === 0 && !collapsed && (
-              <div className="sidebar-empty">No groups yet</div>
+              <div style={{ padding: '4px 10px', fontSize: 12.5, color: 'var(--on-surface-variant)', fontWeight: 500 }}>
+                No groups yet
+              </div>
             )}
           </div>
 
