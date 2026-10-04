@@ -12,48 +12,38 @@ import {
   ArrowRightEndOnRectangleIcon,
   UserGroupIcon,
   MagnifyingGlassIcon,
-  ArrowLeftIcon
+  ArrowLeftIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 
-function GroupCard({ group, onClick }) {
-  const memberCount = group.members?.length || 0;
+const G_COLORS = ['#0056c6', '#ff6b35', '#7a5cff', '#00a67e', '#e5486b', '#141414'];
+const colorFor = (s = '') => G_COLORS[(s.charCodeAt(0) || 0) % G_COLORS.length];
+
+function GroupRow({ group, onClick }) {
+  const members = group.members || [];
+  const names = members.map(m => m.fullname || m.username).join(', ') || '—';
   return (
-    <div className="card" onClick={onClick}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-        <div
-          style={{
-            width: 44, height: 44, borderRadius: 14,
-            background: 'var(--primary-fixed)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: "'Be Vietnam Pro', sans-serif", fontWeight: 800, fontSize: 18,
-            color: 'var(--primary)', flexShrink: 0,
-          }}
-        >
-          {group.name[0]}
+    <div className="glist-row" onClick={onClick} role="link" tabIndex={0} onKeyDown={e => e.key === 'Enter' && onClick()}>
+      <div className="glist-name">
+        <div className="glist-ic" style={{ background: colorFor(group.name) }}>{group.name[0]?.toUpperCase()}</div>
+        <div style={{ minWidth: 0 }}>
+          <div className="glist-title">{group.name}</div>
+          <div className="glist-desc">{group.description || 'No description'}</div>
         </div>
-        <span className="tag tag-mono">{memberCount} members</span>
       </div>
-      <div className="card-title">{group.name}</div>
-      <div className="card-sub" style={{ marginTop: 6, marginBottom: 16 }}>
-        {group.members?.map(m => m.fullname || m.username).join(', ') || '—'}
+      <div className="glist-members">
+        <div className="glist-stack">
+          {members.slice(0, 3).map((m, i) => (
+            <span key={m._id || i} style={{ background: colorFor(m.fullname || m.username || String(i)) }}>
+              {(m.fullname || m.username || '?')[0].toUpperCase()}
+            </span>
+          ))}
+        </div>
+        {members.length} member{members.length !== 1 ? 's' : ''}
       </div>
-      <hr className="divider" />
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 14 }}>
-        <span
-          style={{
-            fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
-            color: 'var(--on-surface-variant)', background: 'var(--surface-container-low)',
-            padding: '4px 10px', borderRadius: 8, letterSpacing: '0.08em',
-          }}
-        >
-          {group.groupcode}
-        </span>
-        {group.description && (
-          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: 'var(--on-surface-variant)', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
-            {group.description}
-          </span>
-        )}
-      </div>
+      <div><span className="glist-code">{group.groupcode}</span></div>
+      <div className="glist-names">{names}</div>
+      <ChevronRightIcon className="glist-chev" style={{ width: 16, height: 16 }} />
     </div>
   );
 }
@@ -61,7 +51,7 @@ function GroupCard({ group, onClick }) {
 export default function Groups() {
   const navigate = useNavigate();
   const showToast = useToast();
-  const { fetchGroups, invalidateGroups, addGroupToCache } = useDataCache();
+  const { fetchGroups, addGroupToCache } = useDataCache();
 
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -94,7 +84,6 @@ export default function Groups() {
     try {
       const { data } = await createGroup({ name: newName, description: newDesc });
       if (data.success) {
-        // Optimistically prepend to local state + cache
         addGroupToCache(data.group);
         setGroups(gs => [data.group, ...gs]);
         setCreateModal(false);
@@ -114,7 +103,6 @@ export default function Groups() {
     try {
       const { data } = await joinGroup({ groupcode: joinCode.trim().toUpperCase() });
       if (data.success) {
-        // Optimistically prepend and update cache
         addGroupToCache(data.group);
         setGroups(gs => [data.group, ...gs]);
         setJoinModal(false);
@@ -139,7 +127,7 @@ export default function Groups() {
         showMenu
         onMenuClick={() => setSidebarOpen(true)}
         actions={
-          <button className="btn btn-ghost btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => navigate('/')}>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/')}>
             <ArrowLeftIcon style={{ width: 15, height: 15 }} />
             Home
           </button>
@@ -150,50 +138,68 @@ export default function Groups() {
         <div className="main-content">
           <div className="page-header">
             <div>
+              <div className="crumbs">Workspace <span>/</span> <b>Groups</b></div>
               <div className="page-title">Groups</div>
-              <div className="page-sub">Your expense circles</div>
+              <div className="page-sub">Your expense circles — hostels, trips, flatmates.</div>
             </div>
             <div className="new-menu-wrapper">
-              <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => setShowMenu(!showMenu)}>
+              <button className="btn btn-primary" onClick={() => setShowMenu(!showMenu)}>
                 <PlusIcon style={{ width: 16, height: 16 }} />
                 New
               </button>
               {showMenu && (
-                <div className="new-menu">
-                  <div className="new-menu-item" onClick={() => { setJoinModal(true); setShowMenu(false); }} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <ArrowRightEndOnRectangleIcon style={{ width: 16, height: 16 }} />
-                    Join Group
+                <>
+                  <div style={{ position: 'fixed', inset: 0, zIndex: 70 }} onClick={() => setShowMenu(false)} />
+                  <div className="new-menu">
+                    <div className="new-menu-item" onClick={() => { setJoinModal(true); setShowMenu(false); }}>
+                      <ArrowRightEndOnRectangleIcon style={{ width: 16, height: 16 }} />
+                      Join group
+                    </div>
+                    <div className="new-menu-item" onClick={() => { setCreateModal(true); setShowMenu(false); }}>
+                      <UserGroupIcon style={{ width: 16, height: 16 }} />
+                      Create group
+                    </div>
                   </div>
-                  <div className="new-menu-item" onClick={() => { setCreateModal(true); setShowMenu(false); }} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <UserGroupIcon style={{ width: 16, height: 16 }} />
-                    Create Group
-                  </div>
-                </div>
+                </>
               )}
             </div>
           </div>
 
-          <div className="search-bar" style={{ position: 'relative' }}>
-            <MagnifyingGlassIcon
-              style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: 'var(--on-surface-variant)', pointerEvents: 'none' }}
-            />
-            <input
-              className="input-field"
-              placeholder="Search groups or members..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={{ paddingLeft: 40 }}
-            />
+          <div className="list-toolbar">
+            <div className="list-search">
+              <MagnifyingGlassIcon />
+              <input
+                className="input-field"
+                placeholder="Search groups or members…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            {!loading && (
+              <span className="list-count">{filtered.length} group{filtered.length !== 1 ? 's' : ''}</span>
+            )}
           </div>
 
           {loading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><Spinner /></div>
+            <div style={{ display: 'flex', justifyContent: 'center', padding: 60, color: 'var(--primary)' }}><Spinner /></div>
           ) : filtered.length === 0 ? (
-            <EmptyState icon={<UserGroupIcon style={{ width: 32, height: 32, color: 'var(--on-surface-variant)' }} />} text="No groups yet. Create or join one above." />
+            <div className="glist">
+              <EmptyState
+                icon={<UserGroupIcon style={{ width: 28, height: 28, color: 'var(--on-surface-variant)' }} />}
+                text={groups.length === 0 ? 'No groups yet. Create or join one to get started.' : 'No groups match your search.'}
+              />
+            </div>
           ) : (
-            <div className="groups-grid">
+            <div className="glist">
+              <div className="glist-head">
+                <span>Group</span>
+                <span>Members</span>
+                <span>Code</span>
+                <span>People</span>
+                <span />
+              </div>
               {filtered.map(g => (
-                <GroupCard key={g._id} group={g} onClick={() => navigate(`/groups/${g._id}`)} />
+                <GroupRow key={g._id} group={g} onClick={() => navigate(`/groups/${g._id}`)} />
               ))}
             </div>
           )}
@@ -201,12 +207,12 @@ export default function Groups() {
       </div>
 
       {/* Join Modal */}
-      <Modal open={joinModal} onClose={() => setJoinModal(false)} title="Join a Group">
-        <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: 'var(--on-surface-variant)', marginBottom: 20, fontWeight: 500 }}>
-          Enter the invite code from your group admin.
+      <Modal open={joinModal} onClose={() => setJoinModal(false)} title="Join a group">
+        <p style={{ fontSize: 13.5, color: 'var(--on-surface-variant)', marginBottom: 20, fontWeight: 500 }}>
+          Enter the group code you were given.
         </p>
-        <div style={{ marginBottom: 16 }}>
-          <label className="form-label">Invite Code</label>
+        <div style={{ marginBottom: 8 }}>
+          <label className="form-label">Group code</label>
           <div style={{ display: 'flex', gap: 10 }}>
             <input
               className="input-field"
@@ -216,22 +222,22 @@ export default function Groups() {
               style={{ letterSpacing: 4, fontWeight: 700, textTransform: 'uppercase' }}
               onKeyDown={e => e.key === 'Enter' && handleJoin()}
             />
-            <button className="btn btn-primary" style={{ borderRadius: 14, flexShrink: 0 }} onClick={handleJoin} disabled={submitting}>
-              {submitting ? <Spinner /> : 'Join →'}
+            <button className="btn btn-primary" style={{ flexShrink: 0 }} onClick={handleJoin} disabled={submitting}>
+              {submitting ? <Spinner /> : 'Join'}
             </button>
           </div>
         </div>
       </Modal>
 
       {/* Create Modal */}
-      <Modal open={createModal} onClose={() => setCreateModal(false)} title="Create a Group">
-        <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: 'var(--on-surface-variant)', marginBottom: 20, fontWeight: 500 }}>
+      <Modal open={createModal} onClose={() => setCreateModal(false)} title="Create a group">
+        <p style={{ fontSize: 13.5, color: 'var(--on-surface-variant)', marginBottom: 20, fontWeight: 500 }}>
           Give your group a name and start splitting expenses.
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
-            <label className="form-label">Group Name</label>
-            <input className="input-field" placeholder="Hostel Bills, Trip to Goa..." value={newName} onChange={e => setNewName(e.target.value)} />
+            <label className="form-label">Group name</label>
+            <input className="input-field" placeholder="Hostel bills, Trip to Goa…" value={newName} onChange={e => setNewName(e.target.value)} />
           </div>
           <div>
             <label className="form-label">Description (optional)</label>
@@ -239,8 +245,8 @@ export default function Groups() {
           </div>
           <div className="modal-actions">
             <button className="btn btn-ghost" onClick={() => setCreateModal(false)}>Cancel</button>
-            <button className="btn btn-primary" style={{ borderRadius: 14 }} onClick={handleCreate} disabled={submitting}>
-              {submitting ? <Spinner /> : 'Create Group'}
+            <button className="btn btn-primary" onClick={handleCreate} disabled={submitting}>
+              {submitting ? <Spinner /> : 'Create group'}
             </button>
           </div>
         </div>

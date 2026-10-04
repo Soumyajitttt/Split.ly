@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Nav from '../components/layout/Nav';
-import { Input, FormGroup, RedDot, Spinner } from '../components/ui';
+import { Input, FormGroup, Spinner } from '../components/ui';
 import { registerUser } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -9,6 +9,9 @@ import {
   ArrowLeftIcon,
   EyeIcon,
   EyeSlashIcon,
+  UserGroupIcon,
+  BoltIcon,
+  CurrencyRupeeIcon,
 } from '@heroicons/react/24/outline';
 
 export default function Signup() {
@@ -42,50 +45,50 @@ export default function Signup() {
     }
   };
 
-  // const handleGoogleAuth = () => {
-  //   window.location.href = '/api/v1.0.0/users/auth/google';
-  // };
-
   const handleGoogleAuth = () => {
     window.location.href = `${import.meta.env.VITE_API_BASE_URL}/users/auth/google`;
   };
 
   return (
-    <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <div className="page-enter auth-page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <div className="auth-blob b1" />
+      <div className="auth-blob b2" />
+      <div className="auth-dots" />
+
       <Nav
         actions={
           <button
             className="btn btn-ghost btn-sm"
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
             onClick={() => navigate('/login')}
           >
             <ArrowLeftIcon style={{ width: 15, height: 15 }} />
-            Sign In
+            Sign in
           </button>
         }
       />
 
       <div className="auth-body">
-        {/* Left decorative panel */}
+        {/* Left showcase panel */}
         <div className="auth-left">
-          <div className="auth-eyebrow"><RedDot /> Free forever</div>
-          <div className="auth-headline">
-            START<br />SPLITTING<br /><span className="red-line">TODAY</span>
+          <span className="g1" /><span className="g2" /><span className="dots" />
+          <div>
+            <span className="auth-pill"><i />Free forever</span>
+            <h1 className="auth-headline">Start splitting<br />today.</h1>
+            <p className="auth-desc">
+              Set up in 30 seconds. Add your first group, log your first expense, and see the magic immediately.
+            </p>
           </div>
-          <p className="auth-desc">
-            Set up in 30 seconds. Add your first group, log your first expense, and see the magic immediately.
-          </p>
           <div className="auth-features">
             <div className="auth-feature-item">
-              <div className="auth-feature-icon">◈</div>
+              <span className="auth-feature-icon"><UserGroupIcon style={{ width: 16, height: 16 }} /></span>
               Unlimited groups
             </div>
             <div className="auth-feature-item">
-              <div className="auth-feature-icon">▦</div>
+              <span className="auth-feature-icon"><BoltIcon style={{ width: 16, height: 16 }} /></span>
               Smart settlement algorithm
             </div>
             <div className="auth-feature-item">
-              <div className="auth-feature-icon">∞</div>
+              <span className="auth-feature-icon"><CurrencyRupeeIcon style={{ width: 16, height: 16 }} /></span>
               Zero ads, zero fees
             </div>
           </div>
@@ -94,11 +97,11 @@ export default function Signup() {
         {/* Right form */}
         <div className="auth-right">
           <div className="auth-card">
-            <div className="auth-card-title">Create Account</div>
+            <div className="auth-card-title">Create account</div>
             <div className="auth-card-sub">Join Split.ly for free</div>
 
             <div className="auth-form">
-              <FormGroup label="Full Name">
+              <FormGroup label="Full name">
                 <Input placeholder="Your name" value={form.fullname} onChange={set('fullname')} />
               </FormGroup>
 
@@ -122,8 +125,8 @@ export default function Signup() {
                   <button
                     className="password-toggle"
                     type="button"
+                    aria-label={showPass ? 'Hide password' : 'Show password'}
                     onClick={() => setShowPass(!showPass)}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
                     {showPass
                       ? <EyeSlashIcon style={{ width: 16, height: 16 }} />
@@ -133,29 +136,20 @@ export default function Signup() {
                 </div>
               </FormGroup>
 
-              <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: 'var(--on-surface-variant)', letterSpacing: 0.3, lineHeight: 1.6 }}>
+              <p style={{ fontSize: 12, color: 'var(--on-surface-variant)', lineHeight: 1.6, fontWeight: 500 }}>
                 By creating an account you agree to our{' '}
-                <a style={{ color: 'var(--primary)', cursor: 'pointer', fontWeight: 600 }} onClick={() => showToast('Terms coming soon')}>Terms</a>
+                <a className="auth-link" onClick={() => showToast('Terms coming soon')}>Terms</a>
                 {' '}and{' '}
-                <a style={{ color: 'var(--primary)', cursor: 'pointer', fontWeight: 600 }} onClick={() => showToast('Privacy policy coming soon')}>Privacy Policy</a>.
+                <a className="auth-link" onClick={() => showToast('Privacy policy coming soon')}>Privacy Policy</a>.
               </p>
 
-              <button
-                className="btn btn-primary"
-                style={{ width: '100%', justifyContent: 'center', padding: 14, fontSize: 14, borderRadius: 14 }}
-                onClick={handleSignup}
-                disabled={loading}
-              >
-                {loading ? <Spinner /> : 'Create Account →'}
+              <button className="btn btn-primary auth-btn" onClick={handleSignup} disabled={loading}>
+                {loading ? <Spinner /> : 'Create account'}
               </button>
 
               <div className="auth-divider"><span>or</span></div>
 
-              <button
-                className="btn btn-outline"
-                style={{ width: '100%', justifyContent: 'center', padding: 14, fontSize: 14, borderRadius: 14, gap: 10 }}
-                onClick={handleGoogleAuth}
-              >
+              <button className="btn btn-outline auth-btn" onClick={handleGoogleAuth}>
                 <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                   <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>

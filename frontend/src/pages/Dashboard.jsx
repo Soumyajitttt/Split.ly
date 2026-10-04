@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Nav from '../components/layout/Nav';
 import Sidebar from '../components/layout/Sidebar';
@@ -9,69 +9,24 @@ import { useToast } from '../context/ToastContext';
 import { useDataCache } from '../context/DataCache';
 import {
   ArrowLeftIcon,
-  EyeIcon,
-  EyeSlashIcon,
   CheckCircleIcon,
-  InboxIcon,
+  ArrowUpRightIcon,
   ReceiptPercentIcon,
 } from '@heroicons/react/24/outline';
 
+const G_COLORS = ['#0056c6', '#ff6b35', '#7a5cff', '#00a67e', '#e5486b', '#141414'];
+const colorFor = (s = '') => G_COLORS[(s.charCodeAt(0) || 0) % G_COLORS.length];
+const inr = (n) => `₹${Math.round(n || 0).toLocaleString('en-IN')}`;
 
-function StatCard({ label, value, change, changeType, accent, bgBlob }) {
-  const isOwed = label.toLowerCase().includes('you owe') && !label.includes('Owed to');
+function Metric({ label, value, note, dot }) {
   return (
-    <div
-      className="stat-card"
-      style={{
-        background: accent ? 'var(--primary)' : 'var(--surface-container-lowest)',
-        color: accent ? 'var(--on-primary)' : 'var(--on-surface)',
-      }}
-    >
-      {/* Decorative blob */}
-      <div
-        style={{
-          position: 'absolute',
-          right: -20,
-          top: -20,
-          width: 80,
-          height: 80,
-          background: accent
-            ? 'rgba(255,255,255,0.12)'
-            : isOwed
-            ? 'rgba(253,108,0,0.08)'
-            : 'rgba(0,86,198,0.06)',
-          borderRadius: '50%',
-          filter: 'blur(20px)',
-          pointerEvents: 'none',
-        }}
-      />
-      <div
-        className="stat-label-sm"
-        style={{ color: accent ? 'rgba(255,255,255,0.7)' : undefined }}
-      >
+    <div className="metric">
+      <div className="metric-label">
+        <span className="metric-dot" style={{ background: dot }} />
         {label}
       </div>
-      <div
-        className="stat-value"
-        style={{
-          color: accent
-            ? 'var(--on-primary)'
-            : isOwed
-            ? 'var(--secondary-container)'
-            : 'var(--on-surface)',
-          fontSize: 32,
-        }}
-      >
-        {value}
-      </div>
-      {change && (
-        <div
-          className={`stat-change ${changeType || ''}`}
-          style={{ color: accent ? 'rgba(255,255,255,0.65)' : undefined }}
-        >
-          {change}
-        </div>
-      )}
+      <div className="metric-value">{value}</div>
+      <div className="metric-note">{note}</div>
     </div>
   );
 }
@@ -125,17 +80,11 @@ export default function Dashboard() {
         const { summaries: cachedSummaries, refreshPromise } = await fetchAllSummaries(gs);
         if (cancelled) return;
         setGroupSummaries(cachedSummaries);
-        setLoading(false); // ← show the page now with cached data
+        setLoading(false);
 
         // Step 3: when stale summaries finish refreshing in the background, update quietly
         refreshPromise.then(() => {
           if (cancelled) return;
-          const fresh = {};
-          gs.forEach(g => {
-            // pull from cache which refreshPromise just populated
-            fresh[g._id] = cachedSummaries[g._id];
-          });
-          // re-read updated cache entries
           fetchAllSummaries(gs).then(({ summaries }) => {
             if (!cancelled) setGroupSummaries(summaries);
           });
@@ -179,14 +128,35 @@ export default function Dashboard() {
 
   const recentActivity = [...expenses]
     .sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date))
-    .slice(0, 5);
+    .slice(0, 6);
 
   const allSettlements = Object.entries(groupSummaries).flatMap(([gId, s]) => {
     const group = groups.find(g => g._id === gId);
     return (s?.settlements || []).map(st => ({ ...st, groupName: group?.name || '' }));
   });
 
-  const initials = user?.fullname?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || 'U';
+  // 6-month spend trend for one group (same matching logic as before)
+  const sparkFor = (g) => {
+    const now = new Date();
+    const totals = [0, 0, 0, 0, 0, 0];
+    expenses.forEach(e => {
+      const isGroupMatch =
+        String(e.group?._id) === String(g._id) ||
+        String(e.group) === String(g._id) ||
+        String(e.groupId) === String(g._id) ||
+        e.group?.name === g.name;
+      const dateStr = e.createdAt || e.date;
+      if (isGroupMatch && dateStr) {
+        const eDate = new Date(dateStr);
+        const monthDiff = (now.getFullYear() - eDate.getFullYear()) * 12 + (now.getMonth() - eDate.getMonth());
+        if (monthDiff >= 0 && monthDiff < 6) totals[5 - monthDiff] += (e.amount || 0);
+      }
+    });
+    const max = Math.max(...totals, 1);
+    return { totals, sparks: totals.map(v => (v === 0 ? 0.06 : Math.max(v / max, 0.15))) };
+  };
+
+  const monthLabel = new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' });
 
   return (
     <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -194,134 +164,167 @@ export default function Dashboard() {
         showMenu
         onMenuClick={() => setSidebarOpen(true)}
         actions={
-          <>
-            {/* <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: 'white', fontWeight: 600 }} className="sidebar-avatar">
-              {initials}
-            </span> */}
-            <button
-            className="btn btn-ghost btn-sm"
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-            onClick={() => navigate('/')}
-          >
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/')}>
             <ArrowLeftIcon style={{ width: 15, height: 15 }} />
             Home
           </button>
-          </>
         }
       />
       <div className="app-layout">
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="main-content">
-          {/* Header */}
           <div className="page-header">
             <div>
+              <div className="crumbs">Workspace <span>/</span> <b>Dashboard</b></div>
               <div className="page-title">Dashboard</div>
-              <div className="page-sub">
-                Your financial overview · {new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' })}
-              </div>
+              <div className="page-sub">Your financial overview for {monthLabel}</div>
             </div>
-            <span
-              className="tag tag-primary"
-              style={{ alignSelf: 'center', display: 'flex', alignItems: 'center', gap: 6 }}
-            >
-              <span style={{ width: 7, height: 7, background: 'var(--primary)', borderRadius: '50%', animation: 'pulse 2s ease infinite', display: 'inline-block' }} />
+            <span className="tag tag-green" style={{ alignSelf: 'center' }}>
+              <span className="live-dot" />
               Live
             </span>
           </div>
 
           {loading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
+            <div style={{ display: 'flex', justifyContent: 'center', padding: 80, color: 'var(--primary)' }}>
               <Spinner />
             </div>
           ) : (
             <>
-              {/* Stats */}
-              <div className="stats-row">
-                <StatCard
-                  accent
-                  label="Total Owed to You"
-                  value={`₹${Math.round(totalOwed).toLocaleString('en-IN')}`}
-                  change="From all groups"
-                  changeType="up"
-                />
-                <StatCard
-                  label="You Owe Others"
-                  value={`₹${Math.round(totalOwe).toLocaleString('en-IN')}`}
-                  change="Across groups"
-                  changeType="down"
-                />
-                <StatCard
-                  label="Total Tracked"
-                  value={`₹${Math.round(totalTracked).toLocaleString('en-IN')}`}
-                  change={`${expenses.length} expense${expenses.length !== 1 ? 's' : ''}`}
-                />
-                <StatCard
-                  label="Active Groups"
-                  value={String(groups.length)}
-                  change={`${groups.reduce((s, g) => s + (g.members?.length || 0), 0)} total members`}
-                />
+              {/* Metrics */}
+              <div className="metrics">
+                <Metric dot="#00a67e" label="Owed to you" value={inr(totalOwed)} note="From all groups" />
+                <Metric dot="#ff6b35" label="You owe" value={inr(totalOwe)} note="Across groups" />
+                <Metric dot="#0056c6" label="Total tracked" value={inr(totalTracked)} note={`${expenses.length} expense${expenses.length !== 1 ? 's' : ''}`} />
+                <Metric dot="#7a5cff" label="Active groups" value={String(groups.length)} note={`${groups.reduce((s, g) => s + (g.members?.length || 0), 0)} total members`} />
               </div>
 
-              {/* Charts Row */}
+              {/* Spending + activity */}
               <div className="dashboard-grid">
-                <div className="chart-card">
-                  <div className="chart-title">
-                    Monthly Spending <span className="chart-title-tag">6 Months</span>
+                <div className="panel">
+                  <div className="panel-head">
+                    <div className="panel-title">Monthly spending</div>
+                    <span className="panel-meta">Last 6 months</span>
                   </div>
-                  <BarChart data={barData} />
-                  {barData.every(d => d.value === 0) && (
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: 'var(--on-surface-variant)', textAlign: 'center', marginTop: 8, fontWeight: 500 }}>
-                      Add expenses to see spending trends
+                  <div className="panel-body">
+                    <BarChart data={barData} />
+                    {barData.every(d => d.value === 0) && (
+                      <div style={{ fontSize: 12.5, color: 'var(--on-surface-variant)', textAlign: 'center', marginTop: 10, fontWeight: 500 }}>
+                        Add expenses to see spending trends
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="panel">
+                  <div className="panel-head">
+                    <div className="panel-title">Recent activity</div>
+                  </div>
+                  <div className="activity-feed">
+                    {recentActivity.length === 0 ? (
+                      <div className="empty-line">No activity yet. Add an expense in a group.</div>
+                    ) : recentActivity.map((e, i) => {
+                      const paid = e.status === 'YOU PAID';
+                      return (
+                        <div className="activity-item" key={i}>
+                          <div
+                            className="activity-icon"
+                            style={{ background: paid ? 'var(--success-bg)' : 'var(--secondary-fixed)', color: paid ? 'var(--success)' : 'var(--secondary)' }}
+                          >
+                            {paid
+                              ? <ArrowUpRightIcon style={{ width: 16, height: 16 }} />
+                              : <ReceiptPercentIcon style={{ width: 16, height: 16 }} />}
+                          </div>
+                          <div className="activity-text">
+                            <div className="activity-name">{e.title || e.description}</div>
+                            <div className="activity-sub">{e.paidBy || e.paidby?.fullname} paid · {e.status}</div>
+                          </div>
+                          <div className={`activity-amount ${e.status === 'PENDING' ? 'owed' : ''}`}>
+                            {e.status === 'PENDING' ? '−' : '+'}₹{(e.amount || 0).toLocaleString('en-IN')}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Groups + settlements */}
+              <div className="dashboard-grid">
+                <div className="panel">
+                  <div className="panel-head">
+                    <div className="panel-title">My groups</div>
+                    <button className="panel-link" onClick={() => navigate('/groups')}>View all</button>
+                  </div>
+                  {groups.length === 0 ? (
+                    <div className="empty-line">
+                      No groups yet —{' '}
+                      <span style={{ color: 'var(--primary)', cursor: 'pointer', fontWeight: 700 }} onClick={() => navigate('/groups')}>
+                        create one
+                      </span>
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Group</th>
+                            <th>Code</th>
+                            <th>6-month trend</th>
+                            <th style={{ textAlign: 'right' }}>Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {groups.slice(0, 6).map(g => {
+                            const s = groupSummaries[g._id];
+                            const { totals, sparks } = sparkFor(g);
+                            return (
+                              <tr key={g._id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/groups/${g._id}`)}>
+                                <td>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                                    <span className="glist-ic" style={{ width: 30, height: 30, borderRadius: 9, fontSize: 13, background: colorFor(g.name) }}>
+                                      {g.name[0]?.toUpperCase()}
+                                    </span>
+                                    <div>
+                                      <div style={{ fontWeight: 700 }}>{g.name}</div>
+                                      <div style={{ fontSize: 12, color: 'var(--on-surface-variant)', fontWeight: 500 }}>{g.members?.length} members</div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td><span className="glist-code">{g.groupcode}</span></td>
+                                <td>
+                                  <div className="sparkline-row">
+                                    {sparks.map((h, j) => (
+                                      <div
+                                        key={j}
+                                        className={`spark-bar ${j === sparks.length - 1 ? 'highlight' : ''}`}
+                                        style={{ height: `${h * 100}%` }}
+                                        title={`₹${totals[j]}`}
+                                      />
+                                    ))}
+                                  </div>
+                                </td>
+                                <td className="num">{inr(s?.totalExpense)}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </div>
 
-                <div className="chart-card">
-                  <div className="chart-title">Recent Activity</div>
-                  <div className="activity-feed">
-                    {recentActivity.length === 0 ? (
-                      <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: 'var(--on-surface-variant)', padding: '16px 0', fontWeight: 500 }}>
-                        No recent activity
-                      </div>
-                    ) : recentActivity.map((e, i) => (
-                      <div className="activity-item" key={i}>
-                        <div
-                          className="activity-icon"
-                          style={{ background: e.status === 'YOU PAID' ? 'var(--primary-fixed)' : 'var(--secondary-fixed)' }}
-                        >
-                          {e.status === 'YOU PAID' ? '💸' : '📋'}
-                        </div>
-                        <div className="activity-text">
-                          <div className="activity-name">{e.title || e.description}</div>
-                          <div className="activity-sub">{e.paidBy || e.paidby?.fullname} paid · {e.status}</div>
-                        </div>
-                        <div className={`activity-amount ${e.status === 'PENDING' ? 'owed' : ''}`}>
-                          {e.status === 'PENDING' ? '−' : '+'}₹{(e.amount || 0).toLocaleString('en-IN')}
-                        </div>
-                      </div>
-                    ))}
+                <div className="panel">
+                  <div className="panel-head">
+                    <div className="panel-title">Settlement summary</div>
+                    {allSettlements.length > 0 && <span className="panel-meta">{allSettlements.length} pending</span>}
                   </div>
-                </div>
-              </div>
-
-              {/* Second Charts Row */}
-              <div className="dashboard-grid">
-                <div className="chart-card">
-                  <div className="chart-title">Settlement Summary</div>
                   {allSettlements.length === 0 ? (
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 10,
-                        padding: '16px 0',
-                        fontFamily: "'Plus Jakarta Sans', sans-serif",
-                        fontSize: 13,
-                        color: '#1a7f37',
-                        fontWeight: 600,
-                      }}
-                    >
-                      <span style={{ background: '#dcfce7', borderRadius: 10, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircleIcon style={{ width: 16, height: 16, color: '#16a34a' }} />All settled up</span>
+                    <div style={{ padding: 18 }}>
+                      <span className="tag tag-green" style={{ padding: '8px 14px', fontSize: 13 }}>
+                        <CheckCircleIcon style={{ width: 16, height: 16 }} />
+                        All settled up
+                      </span>
                     </div>
                   ) : (
                     <table className="owe-table">
@@ -336,120 +339,15 @@ export default function Dashboard() {
                         {allSettlements.slice(0, 6).map((s, i) => (
                           <tr key={i}>
                             <td>{s.from}</td>
-                            <td><span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: 'var(--on-surface-variant)' }}>{s.to}</span></td>
-                            <td className="amount-owed">−₹{Math.round(s.amount).toLocaleString('en-IN')}</td>
+                            <td style={{ color: 'var(--on-surface-variant)' }}>{s.to}</td>
+                            <td className="amount-owed">−{inr(s.amount)}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   )}
                 </div>
-
-                <div className="chart-card">
-                  <div className="chart-title">My Groups</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                    {groups.length === 0 ? (
-                      <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: 'var(--on-surface-variant)', fontWeight: 500 }}>
-                        No groups yet —{' '}
-                        <span style={{ color: 'var(--primary)', cursor: 'pointer', fontWeight: 700 }} onClick={() => navigate('/groups')}>
-                          create one
-                        </span>
-                      </div>
-                    ) : groups.slice(0, 4).map(g => {
-                      const s = groupSummaries[g._id];
-                      return (
-                        <div
-                          key={g._id}
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            padding: '12px 10px',
-                            borderRadius: 14,
-                            cursor: 'pointer',
-                            transition: 'background 0.15s',
-                            borderBottom: '1px solid var(--surface-container-high)',
-                          }}
-                          onClick={() => navigate(`/groups/${g._id}`)}
-                          onMouseOver={e => e.currentTarget.style.background = 'var(--surface-container-low)'}
-                          onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <div style={{ width: 36, height: 36, borderRadius: 12, background: 'var(--primary-fixed)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Be Vietnam Pro', sans-serif", fontWeight: 800, fontSize: 14, color: 'var(--primary)' }}>
-                              {g.name[0]}
-                            </div>
-                            <div>
-                              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: 'var(--on-surface)', fontWeight: 600 }}>{g.name}</div>
-                              <div style={{ fontSize: 11, color: 'var(--on-surface-variant)', marginTop: 1, fontWeight: 500 }}>
-                                {g.members?.length} members · {g.groupcode}
-                              </div>
-                            </div>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontFamily: "'Be Vietnam Pro', sans-serif", fontSize: 18, fontWeight: 800, color: 'var(--on-surface)', letterSpacing: '-0.02em' }}>
-                              ₹{(s?.totalExpense || 0).toLocaleString('en-IN')}
-                            </div>
-                            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: 'var(--on-surface-variant)', fontWeight: 600 }}>total</div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
               </div>
-
-              {/* Group Sparklines */}
-              {groups.length > 0 && (
-                <div className="dashboard-grid-3">
-                  {groups.slice(0, 2).map(g => {
-                    const s = groupSummaries[g._id];
-                    const now = new Date();
-                    const monthlyGroupTotals = [0, 0, 0, 0, 0, 0];
-                    expenses.forEach(e => {
-                      const isGroupMatch =
-                        String(e.group?._id) === String(g._id) ||
-                        String(e.group) === String(g._id) ||
-                        String(e.groupId) === String(g._id) ||
-                        e.group?.name === g.name;
-                      const dateStr = e.createdAt || e.date;
-                      if (isGroupMatch && dateStr) {
-                        const eDate = new Date(dateStr);
-                        const monthDiff = (now.getFullYear() - eDate.getFullYear()) * 12 + (now.getMonth() - eDate.getMonth());
-                        if (monthDiff >= 0 && monthDiff < 6) {
-                          monthlyGroupTotals[5 - monthDiff] += (e.amount || 0);
-                        }
-                      }
-                    });
-                    const maxTotal = Math.max(...monthlyGroupTotals, 1);
-                    const sparks = monthlyGroupTotals.map(val => val === 0 ? 0.05 : Math.max(val / maxTotal, 0.15));
-
-                    return (
-                      <div className="chart-card" key={g._id}>
-                        <div className="chart-title">
-                          {g.name}
-                          <span className="chart-title-tag">{g.members?.length}M</span>
-                        </div>
-                        <div style={{ fontFamily: "'Be Vietnam Pro', sans-serif", fontSize: 32, fontWeight: 800, letterSpacing: '-0.03em', margin: '8px 0 4px', color: 'var(--on-surface)' }}>
-                          ₹{(s?.totalExpense || 0).toLocaleString('en-IN')}
-                        </div>
-                        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: 'var(--on-surface-variant)', marginBottom: 14, fontWeight: 600 }}>
-                          Code: {g.groupcode}
-                        </div>
-                        <div className="sparkline-row">
-                          {sparks.map((h, j) => (
-                            <div
-                              key={j}
-                              className={`spark-bar ${j === sparks.length - 1 ? 'highlight' : ''}`}
-                              style={{ height: `${h * 100}%` }}
-                              title={`₹${monthlyGroupTotals[j]}`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </>
           )}
         </div>
