@@ -4,6 +4,7 @@ import Nav from '../components/layout/Nav';
 import Sidebar from '../components/layout/Sidebar';
 import { Modal, EmptyState, Spinner } from '../components/ui';
 import BottomNav from '../components/layout/BottomNav';
+import { TabBar, TabContent } from '../components/ui/TabBar';
 import {
   getGroupDetails, getGroupExpenses, getGroupSummary,
   createExpense, deleteExpense, settleExpense, leaveGroup,
@@ -37,6 +38,7 @@ export default function GroupDetail() {
   const [summary,  setSummary]  = useState(null);
   const [loading,  setLoading]  = useState(true);
   const [activeTab, setActiveTab] = useState('balances');
+  const [tabSwitched, setTabSwitched] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [expenseModal, setExpenseModal] = useState(false);
@@ -193,7 +195,7 @@ export default function GroupDetail() {
   };
 
   if (loading) return (
-    <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <div className="app-page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Nav showMenu onMenuClick={() => setSidebarOpen(true)} actions={<button className="btn btn-ghost btn-sm" onClick={() => navigate('/groups')}>← Groups</button>} />
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Spinner /></div>
     </div>
@@ -223,7 +225,7 @@ export default function GroupDetail() {
     : null;
 
   return (
-    <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <div className="app-page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Nav
         showMenu
         onMenuClick={() => setSidebarOpen(true)}
@@ -337,18 +339,17 @@ export default function GroupDetail() {
           <div style={{ display: 'flex', gap: 16 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               {/* Tab Bar */}
-              <div className="tab-bar">
-                {[
+              <TabBar
+                value={activeTab}
+                onChange={(id) => { setTabSwitched(true); setActiveTab(id); }}
+                tabs={[
                   ['balances', `Balances${settlements.length ? ` (${settlements.length})` : ''}`],
                   ['received', `Settlements${settlementRecords.length ? ` (${settlementRecords.length})` : ''}`],
                   ['all',      `Records`],
-                ].map(([id, label]) => (
-                  <button key={id} className={`tab ${activeTab === id ? 'active' : ''}`} onClick={() => setActiveTab(id)}>
-                    {label}
-                  </button>
-                ))}
-              </div>
+                ]}
+              />
 
+              <TabContent id={activeTab} animate={tabSwitched}>
               {/* Balances Tab */}
               {activeTab === 'balances' && (
                 <div>
@@ -417,6 +418,7 @@ export default function GroupDetail() {
                   )}
                 </div>
               )}
+              </TabContent>
             </div>
 
             {/* Members sidebar */}

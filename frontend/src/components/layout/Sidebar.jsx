@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import gsap from 'gsap';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -27,6 +28,10 @@ const COLLAPSE_AT = 150; // dragging narrower than this snaps to the rail
 const STORE_KEY = 'splitly.sidebar';
 const G_COLORS = ['#0056c6', '#ff6b35', '#7a5cff', '#00a67e', '#e5486b', '#141414'];
 
+// remembered between page mounts so the active highlight can slide from the previous tab
+let lastPos = null;
+let groupsMemo = [];
+
 function readStored() {
   try {
     const v = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
@@ -48,7 +53,9 @@ export default function Sidebar({ open, onClose }) {
 
   const [{ width, collapsed }, setLayout] = useState(readStored);
   const [dragging, setDragging] = useState(false);
-  const [groups, setGroups] = useState([]);
+  const [groups, setGroups] = useState(() => groupsMemo);
+  const scrollRef = useRef(null);
+  const indRef = useRef(null);
   const widthRef = useRef(width);
   useEffect(() => { widthRef.current = width; }, [width]);
 
@@ -60,9 +67,26 @@ export default function Sidebar({ open, onClose }) {
   // groups shortcut list (served from the existing cache)
   useEffect(() => {
     let cancelled = false;
-    fetchGroups().then(gs => { if (!cancelled) setGroups(gs || []); }).catch(() => {});
+    fetchGroups().then(gs => { groupsMemo = gs || []; if (!cancelled) setGroups(gs || []); }).catch(() => {});
     return () => { cancelled = true; };
   }, [fetchGroups]);
+
+  // sliding active highlight (GSAP)
+  useLayoutEffect(() => {
+    const el = scrollRef.current?.querySelector('.sidebar-item.active');
+    const ind = indRef.current;
+    if (!ind) return undefined;
+    if (!el) { gsap.set(ind, { opacity: 0 }); return undefined; }
+    const next = { y: el.offsetTop, height: el.offsetHeight };
+    let tween;
+    if (lastPos) {
+      tween = gsap.fromTo(ind, { ...lastPos, opacity: 1 }, { ...next, opacity: 1, duration: 0.5, ease: 'power3.out' });
+    } else {
+      gsap.set(ind, { ...next, opacity: 1 });
+    }
+    lastPos = next;
+    return () => tween?.kill();
+  }, [location.pathname, groups.length]);
 
   const toggle = () => setLayout(l => ({ ...l, collapsed: !l.collapsed }));
 
@@ -131,7 +155,8 @@ export default function Sidebar({ open, onClose }) {
           <XMarkIcon style={{ width: 18, height: 18 }} />
         </button>
 
-        <div className="sidebar-scroll">
+        <div className="sidebar-scroll" ref={scrollRef}>
+          <span className="sidebar-indicator" ref={indRef} />
           <div className="sidebar-top">
             <span className="sidebar-ws">Workspace</span>
             <button

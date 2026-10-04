@@ -122,7 +122,7 @@ export default function Groups() {
   );
 
   return (
-    <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <div className="app-page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Nav
         showMenu
         onMenuClick={() => setSidebarOpen(true)}
