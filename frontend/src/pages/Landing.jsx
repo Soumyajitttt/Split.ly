@@ -714,9 +714,9 @@ export default function Landing() {
         .lp-btn.dark:hover { transform: translateY(-3px); box-shadow: 0 20px 40px rgba(17,17,19,.28); }
         .lp-btn.light { background: #fff; color: var(--ink); border-color: var(--line); }
         .lp-btn.light:hover { transform: translateY(-3px); border-color: var(--ink); }
-        .lp-btn.white { background: #fff; color: var(--blue); box-shadow: 0 14px 34px rgba(0,0,0,.18); }
+        .lp-btn.white { background: #fff; color: #000; box-shadow: 0 14px 34px rgba(0,0,0,.18); }
         .lp-btn.white:hover { transform: translateY(-3px); }
-        .lp-btn.white .arr { background: rgba(0,86,198,.1); }
+        .lp-btn.white .arr { background: rgba(0,0,0,.08); }
         .lp-btn.ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,.4); }
         .lp-btn.ghost:hover { background: rgba(255,255,255,.12); border-color: #fff; transform: translateY(-3px); }
         .roll { display: inline-block; position: relative; overflow: hidden; height: 1.25em; line-height: 1.25; vertical-align: middle; }
@@ -881,14 +881,14 @@ export default function Landing() {
         .lp-tab .pg { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--orange); width: 0; animation: lp-prog 6s linear forwards; }
         .lp-tab.paused .pg { animation-play-state: paused; }
         @keyframes lp-prog { to { width: 100%; } }
-        .lp-panel { position: relative; overflow: hidden; border-radius: 44px; padding: 56px; color: #fff; background: #000; min-height: 460px; display: flex; align-items: center; }
+        .lp-panel { position: relative; overflow: hidden; border-radius: 44px; padding: 56px; color: #fff; background: linear-gradient(135deg, #2b2b30 0%, #17171a 50%, #08080a 100%); min-height: 460px; display: flex; align-items: center; }
         .lp-panel-in { position: relative; z-index: 2; width: 100%; display: grid; grid-template-columns: 1fr 1.05fr; gap: 48px; align-items: center; animation: lp-swap .7s var(--ease) both; }
         @keyframes lp-swap { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
         .lp-panel h3 { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; font-size: clamp(32px, 4vw, 52px); letter-spacing: -.045em; line-height: 1.02; margin: 0 0 16px; }
         .lp-panel p { color: rgba(255,255,255,.82); font-size: 17px; line-height: 1.65; max-width: 430px; font-weight: 500; }
         .lp-tags { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 8px; }
         .lp-tag { padding: 7px 16px; border-radius: 999px; background: rgba(255,255,255,.16); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); font-weight: 700; font-size: 12px; border: 1px solid rgba(255,255,255,.18); }
-        .lp-link { margin-top: 26px; display: inline-flex; align-items: center; gap: 8px; background: #fff; color: var(--blue); font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; font-size: 14px; padding: 12px 20px; border-radius: 999px; border: none; cursor: pointer; transition: transform .3s var(--ease); }
+        .lp-link { margin-top: 26px; display: inline-flex; align-items: center; gap: 8px; background: #fff; color: #000; font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; font-size: 14px; padding: 12px 20px; border-radius: 999px; border: none; cursor: pointer; transition: transform .3s var(--ease); }
         .lp-link:hover { transform: translateY(-2px); }
         .lp-link span { display: inline-block; transition: transform .25s ease; }
         .lp-link:hover span { transform: translateX(4px); }
@@ -953,7 +953,7 @@ export default function Landing() {
 
         /* ── Final CTA ──────────────────────────────────────── */
         .lp-final { padding: 0 24px 90px; }
-        .lp-final-card { position: relative; overflow: hidden; max-width: 1180px; margin: 0 auto; border-radius: 48px; padding: 100px 40px; text-align: center; background: #000; color: #fff; }
+        .lp-final-card { position: relative; overflow: hidden; max-width: 1180px; margin: 0 auto; border-radius: 48px; padding: 100px 40px; text-align: center; background: linear-gradient(135deg, #2b2b30 0%, #17171a 50%, #08080a 100%); color: #fff; }
         .lp-final-in { position: relative; z-index: 2; }
         .lp-final-eyebrow { font-weight: 800; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: rgba(255,255,255,.75); margin-bottom: 22px; }
         .lp-final h2 { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; font-size: clamp(46px, 7.4vw, 100px); line-height: .98; letter-spacing: -.05em; margin: 0 auto 22px; max-width: 800px; }
@@ -1212,12 +1212,12 @@ export default function Landing() {
             <div className="lp-final-actions">
               {user ? (
                 <button className="lp-btn white" onClick={() => navigate('/groups')}>
-                  <Roll>Go to My Groups</Roll><span className="arr"><ArrowRightIcon style={{ width: 13, height: 13, color: 'var(--blue)' }} /></span>
+                  <Roll>Go to My Groups</Roll><span className="arr"><ArrowRightIcon style={{ width: 13, height: 13, color: '#000' }} /></span>
                 </button>
               ) : (
                 <>
                   <button className="lp-btn white" onClick={() => navigate('/signup')}>
-                    <Roll>Create a Group</Roll><span className="arr"><ArrowRightIcon style={{ width: 13, height: 13, color: 'var(--blue)' }} /></span>
+                    <Roll>Create a Group</Roll><span className="arr"><ArrowRightIcon style={{ width: 13, height: 13, color: '#000' }} /></span>
                   </button>
                   <button className="lp-btn ghost" onClick={() => navigate('/login')}>
                     <Roll>Log In</Roll>
