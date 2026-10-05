@@ -81,10 +81,6 @@ function Hero({ owed, owe, openCount }) {
 
   return (
     <section className="dx-hero" aria-label="Overall balance">
-      <i className="dx-blob b1" />
-      <i className="dx-blob b2" />
-      <div className="dx-dots" />
-
       <span className="dx-pill"><i />{label}</span>
 
       <div className="dx-num" aria-label={inr(absNet)}>
@@ -278,7 +274,7 @@ export default function Dashboard() {
 
             {loading ? (
               <div className="dx-grid" aria-busy="true">
-                <div className="dx-hero dx-loading"><i className="dx-blob b1" /><i className="dx-blob b2" /><div className="dx-dots" /></div>
+                <div className="dx-hero dx-loading" />
                 <div className="dx-panel dx-settle"><div className="dx-skel" style={{ width: 110, height: 16 }} /><div className="dx-skel" style={{ height: 44, marginTop: 22 }} /><div className="dx-skel" style={{ height: 44, marginTop: 12 }} /></div>
                 <div className="dx-panel dx-spend"><div className="dx-skel" style={{ width: 130, height: 16 }} /><div className="dx-skel" style={{ height: 150, marginTop: 22 }} /></div>
                 <div className="dx-panel dx-groups"><div className="dx-skel" style={{ width: 110, height: 16 }} /><div className="dx-skel" style={{ height: 44, marginTop: 22 }} /><div className="dx-skel" style={{ height: 44, marginTop: 12 }} /><div className="dx-skel" style={{ height: 44, marginTop: 12 }} /></div>
