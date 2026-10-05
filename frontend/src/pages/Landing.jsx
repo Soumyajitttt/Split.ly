@@ -881,9 +881,7 @@ export default function Landing() {
         .lp-tab .pg { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--orange); width: 0; animation: lp-prog 6s linear forwards; }
         .lp-tab.paused .pg { animation-play-state: paused; }
         @keyframes lp-prog { to { width: 100%; } }
-        .lp-panel { position: relative; overflow: hidden; border-radius: 44px; padding: 56px; color: #fff; background: linear-gradient(135deg, #0a3fa6 0%, #0056c6 45%, #2a7dff 100%); min-height: 460px; display: flex; align-items: center; }
-        .lp-panel .g1 { position: absolute; width: 420px; height: 420px; border-radius: 50%; background: #ff6b35; filter: blur(110px); opacity: .5; right: -120px; bottom: -160px; }
-        .lp-panel .g2 { position: absolute; width: 360px; height: 360px; border-radius: 50%; background: #7a5cff; filter: blur(110px); opacity: .55; left: -100px; top: -140px; }
+        .lp-panel { position: relative; overflow: hidden; border-radius: 44px; padding: 56px; color: #fff; background: #000; min-height: 460px; display: flex; align-items: center; }
         .lp-panel-in { position: relative; z-index: 2; width: 100%; display: grid; grid-template-columns: 1fr 1.05fr; gap: 48px; align-items: center; animation: lp-swap .7s var(--ease) both; }
         @keyframes lp-swap { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
         .lp-panel h3 { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; font-size: clamp(32px, 4vw, 52px); letter-spacing: -.045em; line-height: 1.02; margin: 0 0 16px; }
@@ -955,9 +953,7 @@ export default function Landing() {
 
         /* ── Final CTA ──────────────────────────────────────── */
         .lp-final { padding: 0 24px 90px; }
-        .lp-final-card { position: relative; overflow: hidden; max-width: 1180px; margin: 0 auto; border-radius: 48px; padding: 100px 40px; text-align: center; background: linear-gradient(135deg, #0a3fa6 0%, #0056c6 50%, #2a7dff 100%); color: #fff; }
-        .lp-final-card .g1 { position: absolute; width: 480px; height: 480px; border-radius: 50%; background: #ff6b35; filter: blur(120px); opacity: .5; left: -140px; bottom: -220px; animation: lp-drift 12s ease-in-out infinite alternate; }
-        .lp-final-card .g2 { position: absolute; width: 420px; height: 420px; border-radius: 50%; background: #7a5cff; filter: blur(120px); opacity: .6; right: -120px; top: -200px; animation: lp-drift 14s ease-in-out infinite alternate-reverse; }
+        .lp-final-card { position: relative; overflow: hidden; max-width: 1180px; margin: 0 auto; border-radius: 48px; padding: 100px 40px; text-align: center; background: #000; color: #fff; }
         .lp-final-in { position: relative; z-index: 2; }
         .lp-final-eyebrow { font-weight: 800; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: rgba(255,255,255,.75); margin-bottom: 22px; }
         .lp-final h2 { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; font-size: clamp(46px, 7.4vw, 100px); line-height: .98; letter-spacing: -.05em; margin: 0 auto 22px; max-width: 800px; }
@@ -1119,7 +1115,6 @@ export default function Landing() {
               onMouseEnter={() => setTabPaused(true)}
               onMouseLeave={() => setTabPaused(false)}
             >
-              <span className="g1" /><span className="g2" />
               <DotPattern color="rgba(255,255,255,0.10)" style={{ top: 0, right: 0, width: '45%', height: '100%' }} />
               <div className="lp-panel-in" key={active.id}>
                 <div>
@@ -1209,7 +1204,6 @@ export default function Landing() {
       {/* ── FINAL CTA ─────────────────────────────────────────────────── */}
       <section className="lp-final">
         <Reveal className="lp-final-card">
-          <span className="g1" /><span className="g2" />
           <DotPattern color="rgba(255,255,255,0.10)" style={{ inset: 0, width: '100%', height: '100%' }} />
           <div className="lp-final-in">
             <p className="lp-final-eyebrow">Get started for free</p>
