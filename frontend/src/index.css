@@ -558,18 +558,18 @@ input[type=number].no-spinner { -moz-appearance: textfield; appearance: textfiel
   .dx-hero, .dx-settle, .dx-spend, .dx-groups, .dx-activity { grid-column: span 12; }
 }
 
-/* hero: same blue / orange / violet glow as the landing page + auth */
+/* hero: black card, same orange / violet glow blobs for depth */
 .dx-hero {
   position: relative; overflow: hidden; isolation: isolate; border-radius: 28px; padding: 30px 32px 26px; color: #fff;
-  background: linear-gradient(135deg, #0a3fa6 0%, #0056c6 50%, #2a7dff 100%);
+  background: linear-gradient(135deg, #000 0%, #0a0a0a 55%, #121212 100%);
   display: flex; flex-direction: column; min-height: 320px;
 }
 .dx-hero > * { position: relative; z-index: 1; }
 .dx-blob { position: absolute !important; border-radius: 50%; filter: blur(90px); pointer-events: none; z-index: 0 !important; }
-.dx-blob.b1 { width: 320px; height: 320px; background: #ff6b35; opacity: .5; left: -110px; bottom: -150px; }
-.dx-blob.b2 { width: 300px; height: 300px; background: #7a5cff; opacity: .6; right: -100px; top: -130px; }
-.dx-dots { position: absolute !important; inset: 0; z-index: 0 !important; pointer-events: none; background-image: radial-gradient(circle at 2px 2px, rgba(255,255,255,.11) 1px, transparent 0); background-size: 28px 28px; }
-.dx-hero.dx-loading { background: linear-gradient(135deg, #0a3fa6 0%, #0056c6 50%, #2a7dff 100%); opacity: .55; animation: pulse 1.6s ease infinite; }
+.dx-blob.b1 { width: 320px; height: 320px; background: #ff6b35; opacity: .4; left: -110px; bottom: -150px; }
+.dx-blob.b2 { width: 300px; height: 300px; background: #7a5cff; opacity: .45; right: -100px; top: -130px; }
+.dx-dots { position: absolute !important; inset: 0; z-index: 0 !important; pointer-events: none; background-image: radial-gradient(circle at 2px 2px, rgba(255,255,255,.08) 1px, transparent 0); background-size: 28px 28px; }
+.dx-hero.dx-loading { background: linear-gradient(135deg, #000 0%, #0a0a0a 55%, #121212 100%); opacity: .55; animation: pulse 1.6s ease infinite; }
 
 .dx-pill { align-self: flex-start; display: inline-flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 700; padding: 7px 14px 7px 11px; border-radius: 999px; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.2); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 .dx-pill i { width: 7px; height: 7px; border-radius: 50%; background: #7dffd4; animation: pulse 2s infinite; }
