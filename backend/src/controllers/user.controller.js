@@ -1,6 +1,7 @@
 import {User} from "../models/user.model.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import jwt from "jsonwebtoken";
+import { parseDurationMs } from "../utils/parseDuration.js";
 
 const generateAccessAndRefreshTokens = async (userId) => {
     try {
@@ -24,10 +25,20 @@ const generateAccessAndRefreshTokens = async (userId) => {
 // Cookie options — sameSite: "none" is required because frontend (Vercel)
 // and backend (Render) are on different domains (cross-origin).
 // sameSite: "strict" silently blocks the cookie in this setup.
+//
+// maxAge is REQUIRED here: without it, this becomes a browser *session*
+// cookie, which mobile browsers in particular drop the moment the app is
+// backgrounded for a while (OS reclaiming memory, the browser process
+// restarting, etc.) — regardless of how long REFRESH_TOKEN_EXPIRY actually
+// is. That was silently logging people out after leaving the site unused,
+// even though their refresh token itself was still perfectly valid.
+const REFRESH_COOKIE_MAX_AGE = parseDurationMs(process.env.REFRESH_TOKEN_EXPIRY, 7 * 24 * 60 * 60 * 1000);
+
 const cookieOptions = {
     httpOnly: true,
     secure: true,
     sameSite: "none",
+    maxAge: REFRESH_COOKIE_MAX_AGE,
 };
 
 const registerUser = asyncHandler(async (req, res) => {

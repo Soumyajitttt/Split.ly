@@ -1,6 +1,9 @@
 import { User } from '../models/user.model.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import jwt from 'jsonwebtoken';
+import { parseDurationMs } from '../utils/parseDuration.js';
+
+const REFRESH_COOKIE_MAX_AGE = parseDurationMs(process.env.REFRESH_TOKEN_EXPIRY, 7 * 24 * 60 * 60 * 1000);
 
 const generateAccessAndRefreshTokens = async (userId) => {
   const user = await User.findById(userId);
@@ -21,6 +24,7 @@ const googleCallback = asyncHandler(async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+      maxAge: REFRESH_COOKIE_MAX_AGE,
     };
 
     // Redirect to frontend with accessToken in query (frontend stores it)
