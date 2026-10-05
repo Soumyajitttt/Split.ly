@@ -2,6 +2,7 @@ import { createContext, useContext, useCallback, useEffect, useRef, useState } f
 import { io as ioClient } from 'socket.io-client';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from './AuthContext';
+import { refreshSession } from '../api';
 
 /*
  * Realtime layer for the frontend.
@@ -88,8 +89,20 @@ export function SocketProvider({ children }) {
     });
     socketRef.current = socket;
 
-    socket.on('connect', () => setConnected(true));
+    // The socket handshake uses the access token too. If it expired while the app
+    // was idle the server rejects it and socket.io does NOT retry on its own, so
+    // renew the token and reconnect once (reset on every successful connect).
+    let retriedAuth = false;
+    socket.on('connect', () => { retriedAuth = false; setConnected(true); });
     socket.on('disconnect', () => setConnected(false));
+    socket.on('connect_error', async (err) => {
+      if (err?.message !== 'Unauthorized' || retriedAuth) return;
+      retriedAuth = true;
+      try {
+        await refreshSession();
+        socket.connect();
+      } catch { /* transient — will retry on next focus/reconnect */ }
+    });
 
     socket.on('group:activity', (evt) => {
       // 1) Forward to whichever GroupDetail page (if any) is listening for this group.

@@ -11,34 +11,87 @@ api.interceptors.request.use(cfg => {
   return cfg;
 });
 
+// ── Session refresh ──────────────────────────────────────────────────────────
+// The access token is short-lived (15m). After the app has sat idle, the first
+// thing the UI does is fire several requests at once, and ALL of them used to
+// hit 401 and each start their own refresh. With one refresh token, those
+// parallel refreshes raced and the "losers" were treated as a dead session ->
+// logout. Now every caller shares ONE in-flight refresh.
+const REFRESH_TIMEOUT = 30000;
+const REFRESH_RETRY_DELAYS = [0, 3000, 8000];
+const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+function tokenExpiresInMs(token) {
+  try {
+    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(b64)).exp * 1000 - Date.now();
+  } catch {
+    return 0;
+  }
+}
+
+function clearSession() {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('user');
+  window.dispatchEvent(new Event('auth:logout')); // lets AuthContext react cleanly
+}
+
+let refreshPromise = null;
+
+export function refreshSession() {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      let lastErr;
+      for (const delay of REFRESH_RETRY_DELAYS) {
+        if (delay) await wait(delay);
+        try {
+          const { data } = await axios.post(
+            `${BASE}/users/refresh-token`,
+            {},
+            { withCredentials: true, timeout: REFRESH_TIMEOUT }
+          );
+          localStorage.setItem('accessToken', data.data.accessToken);
+          return data.data.accessToken;
+        } catch (err) {
+          lastErr = err;
+          // Only a *confirmed* 401 from the refresh endpoint means the session is
+          // really gone. Network errors / timeouts / 5xx (e.g. a free-tier backend
+          // still waking up) are transient: retry, and never log out over them.
+          if (err.response?.status === 401) {
+            clearSession();
+            break;
+          }
+        }
+      }
+      throw lastErr;
+    })().finally(() => { refreshPromise = null; });
+  }
+  return refreshPromise;
+}
+
+// Refresh ahead of time if the access token is expired / about to expire.
+export async function ensureFreshToken() {
+  const token = localStorage.getItem('accessToken');
+  if (!token) return;
+  if (tokenExpiresInMs(token) > 60 * 1000) return;
+  await refreshSession();
+}
+
 // Auto-refresh on 401
 api.interceptors.response.use(
   res => res,
   async err => {
     const original = err.config;
-    if (err.response?.status === 401 && !original._retry) {
+    if (err.response?.status === 401 && original && !original._retry) {
       original._retry = true;
       try {
-        const { data } = await axios.post(
-          `${BASE}/users/refresh-token`,
-          {},
-          { withCredentials: true, timeout: 20000 }
-        );
-        localStorage.setItem('accessToken', data.data.accessToken);
-        original.headers.Authorization = `Bearer ${data.data.accessToken}`;
+        const token = await refreshSession();
+        original.headers.Authorization = `Bearer ${token}`;
         return api(original);
       } catch (refreshErr) {
-        // Only a *confirmed* 401 from the refresh endpoint itself means the
-        // session is actually gone (refresh token invalid/expired/reused).
-        // A network error, timeout, or 5xx — e.g. a free-tier backend that's
-        // still waking up after the app sat unused for a while — is
-        // transient: surface the original request's error but leave the
-        // stored session alone so the user isn't logged out over a slow
-        // or flaky request. They (or the next request) can just retry.
+        // Confirmed-dead session -> back to login. Transient failures just
+        // surface the original error and leave the stored session alone.
         if (refreshErr.response?.status === 401) {
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('user');
-          window.dispatchEvent(new Event('auth:logout')); // lets AuthContext react cleanly
           window.location.href = '/login';
         }
       }
@@ -65,11 +118,18 @@ function pingHealth() {
 setInterval(pingHealth, 10 * 60 * 1000);
 
 if (typeof document !== 'undefined') {
+  // When the app comes back (tab refocused, laptop woken, network restored),
+  // renew an expired access token once, up front, instead of letting a burst of
+  // requests discover it the hard way.
+  const onReturn = () => {
+    pingHealth();
+    ensureFreshToken().catch(() => {});
+  };
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) pingHealth();
+    if (!document.hidden) onReturn();
   });
-  window.addEventListener('focus', pingHealth);
-  window.addEventListener('online', pingHealth);
+  window.addEventListener('focus', onReturn);
+  window.addEventListener('online', onReturn);
 }
 
 // ── Auth ─────────────────────────────────────────────────────────────────────

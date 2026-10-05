@@ -133,14 +133,20 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
     const user = await User.findById(decoded._id);
 
-    if (!user || incomingRefreshToken !== user.refreshToken) {
-        return res.status(401).json({ success: false, message: "Refresh token is invalid or already used" });
+    // user.refreshToken is only used as a "signed in" marker here: login sets it,
+    // logout unsets it (revoking the session). We deliberately do NOT require the
+    // incoming token to equal the stored one. Strict single-use rotation made any
+    // two overlapping refreshes (several requests firing at once after the app sat
+    // idle, two tabs, a phone + laptop) invalidate each other, and the loser got a
+    // 401 -> forced logout. A validly signed, unexpired token is enough.
+    if (!user || !user.refreshToken) {
+        return res.status(401).json({ success: false, message: "Session is no longer valid" });
     }
 
-    const { accessToken, refreshToken: newRefreshToken } = await generateAccessAndRefreshTokens(user._id);
-
-    user.refreshToken = newRefreshToken;
-    await user.save({ validateBeforeSave: false });
+    const accessToken = user.generateAccessToken();
+    // Fresh refresh token on every refresh => sliding session: it only expires
+    // after REFRESH_TOKEN_EXPIRY of *inactivity*, not N days after first login.
+    const newRefreshToken = user.generateRefreshToken();
 
     return res
         .status(200)
