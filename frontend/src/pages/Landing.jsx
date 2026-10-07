@@ -529,8 +529,10 @@ function HeroBuddies() {
  *   - NO 3D tilt, NO image zoom/parallax, NO clip-path animation, NO blend-mode glow,
  *     NO drop-shadow filter (those were the main lag sources on mobile GPUs)
  *   - the big number just slides + fades in (opacity/transform only)
- *   - plays ONCE when the card reaches the middle of the screen, then stays open
- *     (tapping elsewhere / blur never closes it again)
+ *   - OPENS when the card enters the middle band of the screen and CLOSES again once it
+ *     scrolls out of a wider band (hysteresis: the close band contains the open band, so
+ *     the card can never flicker open/closed while it sits near the edge)
+ *   - state is tracked in a flag, so each transition fires exactly once per crossing
  *   - text height is measured once & cached (no forced reflow on every open/close)
  */
 const FC_CLOSED = 0.68;   /* same for every card, so all folder tops line up */
@@ -560,6 +562,7 @@ function FolderCard({ n, tone, img, title, desc }) {
     const light = !fine;               /* phones / tablets: cheap animation path */
     const D = reduce ? 0 : 1;
     let io;
+    let ioClose;
 
     api.current.light = light;
 
@@ -678,29 +681,45 @@ function FolderCard({ n, tone, img, title, desc }) {
         el.style.setProperty('--my', `${py * 100}%`);
       };
 
-      /* phone / tablet: play ONCE when the card reaches the middle band of the screen, then stop observing.
-         (Opening/closing on every scroll pass was what made the section stutter on phones.) */
+      /* phone / tablet: scroll-driven open + close.
+         - ioOpen : card touches the narrow middle band (-32% top/bottom)  -> open()
+         - ioClose: card has left the wider band (-20% top/bottom)         -> close()
+         The close band fully contains the open band, so there is a dead zone between the two:
+         the card can't flip-flop while scrolling slowly. A boolean flag guarantees open()/close()
+         each run once per crossing (observers fire only on threshold changes, never per scroll frame),
+         so there is no per-frame JS work and no stutter. */
       if (!reduce && light && typeof IntersectionObserver !== 'undefined') {
+        let isOpen = false;
+
         io = new IntersectionObserver(([entry]) => {
-          if (entry.isIntersecting) {
+          if (entry.isIntersecting && !isOpen) {
+            isOpen = true;
             api.current.open();
-            io.disconnect();
           }
         }, { threshold: 0, rootMargin: '-32% 0px -32% 0px' });
         io.observe(el);
+
+        ioClose = new IntersectionObserver(([entry]) => {
+          if (!entry.isIntersecting && isOpen) {
+            isOpen = false;
+            api.current.close();
+          }
+        }, { threshold: 0, rootMargin: '-20% 0px -20% 0px' });
+        ioClose.observe(el);
       }
     }, el);
 
     return () => {
       window.removeEventListener('resize', onResize);
       if (io) io.disconnect();
+      if (ioClose) ioClose.disconnect();
       ctx.revert();
     };
   }, []);
 
   const open = () => api.current.open && api.current.open();
   const close = () => api.current.close && api.current.close();
-  /* on phones the card stays open once played — a tap/blur must not close it */
+  /* on phones, closing is driven by scroll position (see observers above) — a tap/blur must not close it */
   const onBlur = () => { if (!api.current.light) close(); };
 
   return (
