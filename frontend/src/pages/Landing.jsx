@@ -519,7 +519,7 @@ function HeroBuddies() {
 /**
  * Folder card — closed: the folder covers ~74% of the card, with the art peeking above.
  *
- * DESKTOP (hover + fine pointer), on hover / focus:
+ * DESKTOP (hover + fine pointer), on hover / focus — FULL animation, unchanged:
  *   - the folder sinks, the art zooms + follows the cursor
  *   - a BIG glossy number rises out of the folder pocket and drifts with the pointer
  *   - the number on the folder surface slides UP out of a mask and disappears
@@ -530,7 +530,7 @@ function HeroBuddies() {
  *     NO drop-shadow filter (those were the main lag sources on mobile GPUs)
  *   - the big number just slides + fades in (opacity/transform only)
  *   - plays ONCE when the card reaches the middle of the screen, then stays open
- *     (previously it opened/closed on every scroll pass => constant layout + paint work)
+ *     (tapping elsewhere / blur never closes it again)
  *   - text height is measured once & cached (no forced reflow on every open/close)
  */
 const FC_CLOSED = 0.68;   /* same for every card, so all folder tops line up */
@@ -557,10 +557,11 @@ function FolderCard({ n, tone, img, title, desc }) {
     const mm = window.matchMedia;
     const reduce = mm && mm('(prefers-reduced-motion: reduce)').matches;
     const fine = mm && mm('(hover: hover) and (pointer: fine)').matches;
-    const touch = mm && mm('(hover: none)').matches;
     const light = !fine;               /* phones / tablets: cheap animation path */
     const D = reduce ? 0 : 1;
     let io;
+
+    api.current.light = light;
 
     /* cached text height (measured once, re-measured on resize) */
     let cachedTextH = 0;
@@ -677,9 +678,9 @@ function FolderCard({ n, tone, img, title, desc }) {
         el.style.setProperty('--my', `${py * 100}%`);
       };
 
-      /* touch: play ONCE when the card reaches the middle band of the screen, then stop observing.
+      /* phone / tablet: play ONCE when the card reaches the middle band of the screen, then stop observing.
          (Opening/closing on every scroll pass was what made the section stutter on phones.) */
-      if (!reduce && touch && typeof IntersectionObserver !== 'undefined') {
+      if (!reduce && light && typeof IntersectionObserver !== 'undefined') {
         io = new IntersectionObserver(([entry]) => {
           if (entry.isIntersecting) {
             api.current.open();
@@ -699,6 +700,8 @@ function FolderCard({ n, tone, img, title, desc }) {
 
   const open = () => api.current.open && api.current.open();
   const close = () => api.current.close && api.current.close();
+  /* on phones the card stays open once played — a tap/blur must not close it */
+  const onBlur = () => { if (!api.current.light) close(); };
 
   return (
     <div
@@ -712,7 +715,7 @@ function FolderCard({ n, tone, img, title, desc }) {
       className={`fc ${tone}`}
       tabIndex={0}
       onFocus={open}
-      onBlur={close}
+      onBlur={onBlur}
     >
       <div className="fc-in">
         <div className="fc-art">
@@ -1216,7 +1219,8 @@ export default function Landing() {
 
         /* ── Folder cards: phone / touch performance mode ───────
            Removes the GPU-heavy bits (blend-mode glow, filter drop-shadows on clipped
-           gradient text, animated big shadows, 3D layers) that made scrolling janky. */
+           gradient text, animated big shadows, 3D layers) that made scrolling janky.
+           Desktop (mouse) is NOT affected by this block. */
         @media (hover: none), (pointer: coarse) {
           .fc { transition: none; will-change: auto; box-shadow: 0 18px 24px -18px rgba(30,40,90,.4); }
           .fc.peach { box-shadow: 0 18px 24px -18px rgba(30,40,90,.16); }
