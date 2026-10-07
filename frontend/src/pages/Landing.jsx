@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
+import gsap from 'gsap';
+import cardBlue from '../assets/cards/card-blue.png';
+import cardOrange from '../assets/cards/card-orange.png';
+import cardGreen from '../assets/cards/card-green.png';
 import { useNavigate } from 'react-router-dom';
 import Nav from '../components/layout/Nav';
 import Footer from '../components/layout/Footer';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { logoutUser } from '../api';
-import { ArrowRightIcon } from '@heroicons/react/24/outline';
+import {
+  ArrowRightIcon,
+} from '@heroicons/react/24/outline';
 
 /* ════════════════════════════════════════════════════════════════════════════
    DATA
@@ -22,7 +28,7 @@ const TESTIMONIALS = [
   { text: "Clean UI, fast, does exactly what it says. My entire PG uses it now.", name: "Devanshi A.", location: "Ahmedabad" },
 ];
 
-const MARQUEE_ITEMS = ['Split Smart', 'Zero Drama', 'Settle Up', 'No Arguments', 'Fair & Square', 'Hostel Life', 'Track Everything', 'Split Smart'];
+const MARQUEE_ITEMS = ['Split Smart', 'Zero Drama', 'Settle Up', 'No Arguments', 'Fair & Square', 'Hostel Life', 'Track Everything'];
 
 const TABS = [
   {
@@ -81,6 +87,12 @@ const FAQS = [
     q: 'Is it free to get started?',
     a: 'Yes. You can create an account and start your first group for free.',
   },
+];
+
+const HIGHLIGHTS = [
+  { n: '01', tone: 'sky', img: cardBlue, title: 'Split it your way', desc: 'Divide an expense equally, or enter exactly how much each person owes.' },
+  { n: '02', tone: 'peach', img: cardOrange, title: 'Settle share by share', desc: "Mark each person's share as paid. Part-paid or fully settled." },
+  { n: '03', tone: 'ink', img: cardGreen, title: 'Live updates', desc: 'Track changes as they happen. Everyone sees the same totals.' },
 ];
 
 const AVATAR_PALETTE = ['#0056c6', '#ff6b35', '#7a5cff', '#00a67e', '#e5486b', '#141414'];
@@ -213,25 +225,6 @@ function ScrollFill({ text }) {
   );
 }
 
-/** Number that counts up when scrolled into view. */
-function CountUp({ to, suffix = '', duration = 1400 }) {
-  const [ref, inView] = useInView(0.4);
-  const [v, setV] = useState(0);
-  useEffect(() => {
-    if (!inView) return undefined;
-    let raf = 0;
-    const t0 = performance.now();
-    const tick = t => {
-      const p = Math.min(1, (t - t0) / duration);
-      setV(Math.round(to * (1 - Math.pow(1 - p, 3))));
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [inView, to, duration]);
-  return <span ref={ref}>{v}{suffix}</span>;
-}
-
 /** Button label that rolls up on hover. */
 function Roll({ children }) {
   return (
@@ -272,84 +265,436 @@ function Av({ children, i = 0, size = 34, style = {} }) {
    MOCK UI PIECES (hero / steps / tabs)
    ════════════════════════════════════════════════════════════════════════════ */
 
-function HeroMock() {
-  const bars = [42, 66, 50, 82, 60, 34, 56];
-  const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-  const groups = [
-    { n: 'Hostel Squad', s: '8 members', amt: '+₹1,240', pos: true, i: 0, l: 'H' },
-    { n: 'Manali Trip', s: '12 members', amt: '−₹680', pos: false, i: 1, l: 'M' },
-    { n: 'Flat 4B', s: '3 members', amt: '+₹2,860', pos: true, i: 2, l: 'F' },
-  ];
+const ARC_VERT = `
+attribute vec2 a_pos;
+void main(){ gl_Position = vec4(a_pos, 0.0, 1.0); }
+`;
+
+const ARC_FRAG = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+uniform vec2  uRes;
+uniform float uTime, uDpr, uCell, uDot;
+uniform float uPeak, uHeight, uThick, uFall;
+uniform vec3  uBg, uBase, uAccent, uHigh;
+uniform vec2  uMouse;
+uniform float uMouseRadius, uMouseStrength;
+void main(){
+  float cs = max(uCell, 2.0);
+  vec2 ci = floor(gl_FragCoord.xy / cs);
+  vec2 cc = (ci + 0.5) * cs;
+  float x = cc.x / uDpr;
+  float y = (uRes.y - cc.y) / uDpr;
+  float w = uRes.x / uDpr;
+  float h = uRes.y / uDpr;
+  float normX = (x - w * 0.5) / (w * 0.75);
+  float curveY = h * uPeak + normX * normX * (h * uHeight);
+  float mdx = x - uMouse.x;
+  float influence = uMouseStrength * exp(-(mdx * mdx) / (2.0 * uMouseRadius * uMouseRadius + 1.0));
+  curveY = mix(curveY, uMouse.y, influence);
+  float dist = abs(y - curveY);
+  float th = (140.0 + (1.0 - abs(normX)) * 80.0) * uThick;
+  vec3 col = uBg;
+  if (dist < th) {
+    float i = 1.0 - dist / th;
+    float waveX = sin(x * 0.015 + uTime);
+    float waveY = cos(y * 0.02 + uTime);
+    i = i * 0.7 + waveX * waveY * 0.3 * i;
+    i *= max(0.0, 1.0 - pow(abs(normX), uFall));
+    if (i > 0.02) {
+      float side = uDot * i * uDpr;
+      vec2 d = abs(gl_FragCoord.xy - cc);
+      float cov = 1.0 - smoothstep(side * 0.5 - 1.0, side * 0.5 + 1.0, max(d.x, d.y));
+      vec3 ink = mix(uBase, uAccent, clamp(pow(i, 1.1), 0.0, 1.0));
+      ink = mix(ink, uHigh, smoothstep(0.72, 1.0, i));
+      col = mix(uBg, ink, cov * clamp(i * 1.6, 0.0, 1.0));
+    }
+  }
+  gl_FragColor = vec4(col, 1.0);
+}
+`;
+
+const arcHex = hex => {
+  const h = hex.replace('#', '');
+  return [parseInt(h.slice(0, 2), 16) / 255, parseInt(h.slice(2, 4), 16) / 255, parseInt(h.slice(4, 6), 16) / 255];
+};
+
+/** Predictive Arc (Originkit) — dotted glow band that follows the pointer. */
+function ArcField({
+  className = '',
+  background = '#eeede9',
+  baseColor = '#ff6b35',
+  accentColor = '#ff8f5e',
+  highlight = '#ff6b35',
+  density = 78,
+  dotSize = 1.02,
+  peak = 1.0,
+  thickness = 2.06,
+  falloff = 6,
+  pointerRadius = 236,
+  pointerStrength = 0.34,
+}) {
+  const wrapRef = useRef(null);
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const wrap = wrapRef.current;
+    if (!canvas || !wrap) return undefined;
+    const gl = canvas.getContext('webgl', { alpha: false, antialias: false, depth: false });
+    if (!gl) return undefined;
+
+    const compile = (type, src) => {
+      const sh = gl.createShader(type);
+      gl.shaderSource(sh, src);
+      gl.compileShader(sh);
+      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) { gl.deleteShader(sh); return null; }
+      return sh;
+    };
+    const vs = compile(gl.VERTEX_SHADER, ARC_VERT);
+    const fs = compile(gl.FRAGMENT_SHADER, ARC_FRAG);
+    if (!vs || !fs) return undefined;
+    const prog = gl.createProgram();
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return undefined;
+    gl.useProgram(prog);
+
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    const aPos = gl.getAttribLocation(prog, 'a_pos');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+    const locs = {};
+    const u = name => (name in locs ? locs[name] : (locs[name] = gl.getUniformLocation(prog, name)));
+
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const ps = { x: 0, y: 0, tx: 0, ty: 0, a: 0, ta: 0 };
+    const colors = { bg: arcHex(background), base: arcHex(baseColor), accent: arcHex(accentColor), high: arcHex(highlight) };
+
+    const onMove = e => {
+      const r = canvas.getBoundingClientRect();
+      const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+      ps.ta = inside ? 1 : 0;
+      ps.tx = e.clientX - r.left;
+      ps.ty = r.height - (e.clientY - r.top);
+    };
+    const onLeave = () => { ps.ta = 0; };
+    window.addEventListener('pointermove', onMove, { passive: true });
+    document.addEventListener('pointerleave', onLeave);
+
+    let raf = 0;
+    let visible = true;
+    let last = performance.now();
+    let clock = 0;
+
+    const draw = now => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      if (!reduce) clock = (clock + dt * 0.9) % 6283;
+
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const cw = canvas.clientWidth || 1200;
+      const ch = canvas.clientHeight || 800;
+      const bw = Math.max(1, Math.round(cw * dpr));
+      const bh = Math.max(1, Math.round(ch * dpr));
+      if (canvas.width !== bw || canvas.height !== bh) { canvas.width = bw; canvas.height = bh; }
+      gl.viewport(0, 0, bw, bh);
+
+      const pitchCss = Math.min(bw, bh) / dpr / density;
+      ps.x += (ps.tx - ps.x) * Math.min(1, dt * 12);
+      ps.y += (ps.ty - ps.y) * Math.min(1, dt * 12);
+      ps.a += (ps.ta - ps.a) * Math.min(1, dt * 6);
+
+      gl.uniform2f(u('uRes'), bw, bh);
+      gl.uniform1f(u('uTime'), clock);
+      gl.uniform1f(u('uDpr'), dpr);
+      gl.uniform1f(u('uCell'), Math.max(2, pitchCss * dpr));
+      gl.uniform1f(u('uDot'), pitchCss * 1.2 * dotSize);
+      gl.uniform1f(u('uPeak'), peak);
+      gl.uniform1f(u('uHeight'), 0.0);
+      gl.uniform1f(u('uThick'), thickness);
+      gl.uniform1f(u('uFall'), falloff);
+      gl.uniform2f(u('uMouse'), ps.x, ps.y);
+      gl.uniform1f(u('uMouseRadius'), pointerRadius);
+      gl.uniform1f(u('uMouseStrength'), reduce ? 0 : pointerStrength * ps.a);
+      gl.uniform3f(u('uBg'), colors.bg[0], colors.bg[1], colors.bg[2]);
+      gl.uniform3f(u('uBase'), colors.base[0], colors.base[1], colors.base[2]);
+      gl.uniform3f(u('uAccent'), colors.accent[0], colors.accent[1], colors.accent[2]);
+      gl.uniform3f(u('uHigh'), colors.high[0], colors.high[1], colors.high[2]);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+      raf = (!reduce && visible) ? requestAnimationFrame(draw) : 0;
+    };
+
+    let io;
+    if (typeof IntersectionObserver !== 'undefined') {
+      io = new IntersectionObserver(([entry]) => {
+        visible = entry.isIntersecting;
+        if (visible && !raf) { last = performance.now(); raf = requestAnimationFrame(draw); }
+      });
+      io.observe(wrap);
+    }
+    raf = requestAnimationFrame(draw);
+
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      if (io) io.disconnect();
+      window.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerleave', onLeave);
+    };
+  }, [background, baseColor, accentColor, highlight, density, dotSize, peak, thickness, falloff, pointerRadius, pointerStrength]);
+
   return (
-    <div className="hm-wrap">
-      <div className="hm-float hm-receipt">
-        <div className="hm-receipt-ic">
-          <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
-            <rect x="3" y="2" width="16" height="18" rx="3" stroke="#ff6b35" strokeWidth="2" />
-            <path d="M7 7h8M7 11h6M7 15h4" stroke="#ff6b35" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
-        </div>
-        <div className="hm-receipt-l">Group Dinner</div>
-        <div className="hm-receipt-box">
-          <div className="hm-receipt-s">Total Split</div>
-          <div className="hm-receipt-a">₹4,250</div>
-        </div>
-      </div>
+    <div ref={wrapRef} className={`lp-arc ${className}`} aria-hidden="true">
+      <canvas ref={canvasRef} />
+    </div>
+  );
+}
 
-      <div className="hm-frame">
-        <div className="hm-bar"><i /><i /><i /></div>
-        <div className="hm-grid">
-          <div className="hm-card hm-groups">
-            <div className="hm-head">
-              <span>Groups</span>
-              <span className="hm-sort">Sort by Newest ⌄</span>
-            </div>
-            {groups.map(g => (
-              <div className="hm-row" key={g.n}>
-                <Av i={g.i} size={40} style={{ borderRadius: 14 }}>{g.l}</Av>
-                <div className="hm-row-t">
-                  <b>{g.n}</b>
-                  <small>{g.s}</small>
-                </div>
-                <span className={`hm-chip ${g.pos ? 'pos' : 'neg'}`}>{g.amt}</span>
-              </div>
-            ))}
-            <div className="hm-foot">All groups</div>
+/** Soft playful shapes floating around the hero. */
+function Buddy({ kind, className = '' }) {
+  const g = {
+    arch: ['#ffc2a3', '#ff6b35'],
+    orb: ['#6aa6ff', '#0056c6'],
+    pill: ['#c3b2ff', '#7a5cff'],
+    wedge: ['#6fe3bd', '#00a67e'],
+    gem: ['#ffd9c7', '#ff8f5e'],
+    dot: ['#bcd6ff', '#2a7dff'],
+  }[kind];
+  /* face is drawn around (0,0) then moved onto the shape */
+  const face = {
+    arch: 'translate(60 67) scale(.6)',
+    orb: 'translate(60 60)',
+    pill: 'translate(60 40) scale(.9)',
+    wedge: 'translate(68 86) scale(.9)',
+  }[kind];
+  const shape = {
+    arch: <path d="M6 106A54 54 0 0 1 114 106L80 106A20 20 0 0 0 40 106Z" />,
+    orb: <circle cx="60" cy="60" r="52" />,
+    pill: <rect x="28" y="4" width="64" height="112" rx="32" />,
+    wedge: <path d="M12 14A104 104 0 0 1 112 114L12 114Z" />,
+    gem: <rect x="26" y="26" width="68" height="68" rx="14" transform="rotate(45 60 60)" />,
+    dot: <circle cx="60" cy="60" r="50" />,
+  }[kind];
+  return (
+    <svg className={`bd bd-${kind} ${className}`} viewBox="0 0 120 120" aria-hidden="true">
+      <defs>
+        <linearGradient id={`bdg-${kind}`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor={g[0]} />
+          <stop offset="1" stopColor={g[1]} />
+        </linearGradient>
+        <radialGradient id={`bdh-${kind}`} cx=".3" cy=".25" r=".7">
+          <stop offset="0" stopColor="#fff" stopOpacity=".55" />
+          <stop offset="1" stopColor="#fff" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <g fill={`url(#bdg-${kind})`}>{shape}</g>
+      <g fill={`url(#bdh-${kind})`}>{shape}</g>
+      {face && (
+        <g transform={face} fill="none" stroke="#111113" strokeOpacity=".72" strokeWidth="3" strokeLinecap="round">
+          <path d="M-19 -4q5-6 10 0M9 -4q5-6 10 0M-7 8q7 7 14 0" />
+        </g>
+      )}
+    </svg>
+  );
+}
+
+function HeroBuddies() {
+  return (
+    <div className="lp-buddies" aria-hidden="true">
+      <Buddy kind="arch" />
+      <Buddy kind="orb" />
+      <Buddy kind="gem" />
+      <Buddy kind="dot" />
+      <Buddy kind="pill" />
+      <Buddy kind="wedge" />
+    </div>
+  );
+}
+
+/**
+ * Folder card — closed: the folder covers ~74% of the card, with the art peeking above.
+ * Hover / focus:
+ *   - the folder sinks (like the reference), the art zooms + follows the cursor
+ *   - a BIG glossy number rises out of the folder pocket (from behind the front panel)
+ *     and floats over the art, drifting with the pointer
+ *   - the number on the folder surface slides UP out of a mask and disappears
+ *   - the larger number inside the folder is revealed UPWARD (clip reveal + rise)
+ *   - the card tilts in 3D and a soft spotlight tracks the pointer
+ * (touch devices: plays once when the card scrolls into view)
+ */
+const FC_CLOSED = 0.68;   /* same for every card, so all folder tops line up */
+const FC_OPEN = 0.5;      /* every card sinks to the same height — content never decides it */
+const CLIP_HIDDEN = 'inset(100% -30% 0% -30%)';   /* fully clipped (reveals bottom -> top) */
+const CLIP_SHOWN = 'inset(-30% -30% -30% -30%)';  /* open, with room for the drop-shadow */
+const FC_HIDDEN_Y = 200;   /* px the number sits below its resting spot while "inside" the folder */
+
+function FolderCard({ n, tone, img, title, desc }) {
+  const rootRef = useRef(null);
+  const api = useRef({});
+
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return undefined;
+    const q = s => el.querySelector(s);
+    const inner = q('.fc-in');
+    const panel = q('.fc-panel');
+    const image = q('.fc-img');
+    const numTop = q('.fc-num-in');     /* number on the folder surface (inside a mask) */
+    const pop = q('.fc-pop');           /* rises out of the folder */
+    const popNum = q('.fc-pop-num');    /* the glossy digits (rotation / scale / parallax) */
+
+    const mm = window.matchMedia;
+    const reduce = mm && mm('(prefers-reduced-motion: reduce)').matches;
+    const fine = mm && mm('(hover: hover) and (pointer: fine)').matches;
+    const touch = mm && mm('(hover: none)').matches;
+    const D = reduce ? 0 : 1;
+    let io;
+
+    const ctx = gsap.context(() => {
+      gsap.set(el, { transformPerspective: 900, transformOrigin: '50% 60%' });
+      /* start tucked inside the folder */
+      gsap.set(pop, { y: FC_HIDDEN_Y, clipPath: CLIP_HIDDEN });
+      gsap.set(popNum, { rotation: -12, scale: 0.8, transformOrigin: '50% 100%' });
+
+      const tiltX = gsap.quickTo(el, 'rotationX', { duration: 0.7, ease: 'power3' });
+      const tiltY = gsap.quickTo(el, 'rotationY', { duration: 0.7, ease: 'power3' });
+      const imgX = gsap.quickTo(image, 'x', { duration: 0.9, ease: 'power3' });
+      const imgY = gsap.quickTo(image, 'y', { duration: 0.9, ease: 'power3' });
+      const popX = gsap.quickTo(popNum, 'x', { duration: 1.1, ease: 'power3' });
+      const popY = gsap.quickTo(popNum, 'y', { duration: 1.1, ease: 'power3' });
+
+      /* tallest description among ALL cards in the row: every card reacts identically,
+         so one card's longer text can't limit (or change) how far another one moves */
+      const maxTextH = () => {
+        const scope = el.closest('.lp-stats') || document;
+        return Math.max(0, ...Array.from(scope.querySelectorAll('.fc-text'), t => t.offsetHeight));
+      };
+      /* open: sinks to a fixed fraction (the small number has slid away, so its zone is free) */
+      const openH = () => Math.max(inner.offsetHeight * FC_OPEN, 4 + maxTextH() + 24 + 12);
+      /* closed: fixed fraction too (+ room for number and text if the row is very narrow) */
+      const closedH = () => Math.max(inner.offsetHeight * FC_CLOSED, 85 + maxTextH() + 24);
+
+      api.current.open = () => {
+        el.classList.add('open');
+        /* close() queues a delayed tween — kill pending ones so they can't undo this */
+        gsap.killTweensOf([numTop, pop]);
+
+        gsap.to(panel, { height: openH(), duration: 0.85 * D, ease: 'expo.out', overwrite: 'auto' });
+        gsap.to(image, { scale: 1.1, duration: 1.4 * D, ease: 'expo.out', overwrite: 'auto' });
+        gsap.to(el, { y: -10, duration: 0.7 * D, ease: 'expo.out', overwrite: 'auto' });
+
+        /* surface number exits UPWARD out of its mask */
+        gsap.to(numTop, { yPercent: -125, duration: 0.45 * D, ease: 'power3.in', overwrite: 'auto' });
+
+        /* big number pops out of the folder */
+        gsap.to(pop, { y: 0, duration: 1.15 * D, ease: 'back.out(1.25)', delay: 0.15 * D, overwrite: 'auto' });
+        gsap.to(pop, { clipPath: CLIP_SHOWN, duration: 0.9 * D, ease: 'expo.out', delay: 0.15 * D, overwrite: 'auto' });
+        gsap.to(popNum, { rotation: -5, scale: 1, duration: 1.2 * D, ease: 'expo.out', overwrite: 'auto' });
+      };
+
+      api.current.close = () => {
+        el.classList.remove('open');
+        gsap.killTweensOf([numTop, pop]);
+
+        const H = inner.offsetHeight;
+        /* closed height is a fixed fraction — NOT derived from text length — so folders align across cards */
+        const target = closedH();
+        gsap.to(panel, {
+          height: target,
+          duration: 0.7 * D,
+          ease: 'expo.inOut',
+          overwrite: 'auto',
+          onComplete: () => {
+            if (!el.classList.contains('open') && target <= H * FC_CLOSED + 0.5) gsap.set(panel, { clearProps: 'height' });
+          },
+        });
+        gsap.to(image, { scale: 1, duration: 1 * D, ease: 'expo.out', overwrite: 'auto' });
+        gsap.to(el, { y: 0, duration: 0.7 * D, ease: 'expo.out', overwrite: 'auto' });
+
+        /* number slides back into the folder, tab number returns */
+        gsap.to(pop, { y: FC_HIDDEN_Y, clipPath: CLIP_HIDDEN, duration: 0.6 * D, ease: 'expo.inOut', overwrite: 'auto' });
+        gsap.to(popNum, { rotation: -12, scale: 0.8, duration: 0.6 * D, ease: 'expo.inOut', overwrite: 'auto' });
+        /* comes back up from below the mask (so it keeps travelling the same direction) */
+        gsap.fromTo(numTop, { yPercent: 125 }, { yPercent: 0, duration: 0.8 * D, ease: 'expo.out', delay: 0.3 * D, immediateRender: false, overwrite: 'auto' });
+        tiltX(0); tiltY(0); imgX(0); imgY(0); popX(0); popY(0);
+      };
+
+      api.current.move = e => {
+        if (!fine || reduce) return;
+        const r = el.getBoundingClientRect();
+        const px = (e.clientX - r.left) / r.width;
+        const py = (e.clientY - r.top) / r.height;
+        tiltY((px - 0.5) * 10);
+        tiltX((0.5 - py) * 8);
+        imgX((0.5 - px) * 34);
+        imgY((0.5 - py) * 24);
+        /* foreground object drifts WITH the pointer (opposite of the background) */
+        popX((px - 0.5) * 36);
+        popY((py - 0.5) * 20);
+        el.style.setProperty('--mx', `${px * 100}%`);
+        el.style.setProperty('--my', `${py * 100}%`);
+      };
+
+      if (!reduce && touch && typeof IntersectionObserver !== 'undefined') {
+        io = new IntersectionObserver(([entry]) => {
+          if (entry.isIntersecting) api.current.open();
+          else api.current.close();
+        }, { threshold: 0.65 });
+        io.observe(el);
+      }
+    }, el);
+
+    return () => {
+      if (io) io.disconnect();
+      ctx.revert();
+    };
+  }, []);
+
+  const open = () => api.current.open && api.current.open();
+  const close = () => api.current.close && api.current.close();
+
+  return (
+    <div
+      className="fc-hit"
+      onPointerEnter={e => { if (e.pointerType === 'mouse') open(); }}
+      onPointerMove={e => { if (e.pointerType === 'mouse' && api.current.move) api.current.move(e); }}
+      onPointerLeave={e => { if (e.pointerType === 'mouse') close(); }}
+    >
+    <article
+      ref={rootRef}
+      className={`fc ${tone}`}
+      tabIndex={0}
+      onFocus={open}
+      onBlur={close}
+    >
+      <div className="fc-in">
+        <div className="fc-art">
+          <img className="fc-img" src={img} alt="" loading="lazy" decoding="async" draggable="false" />
+          <div className="fc-glow" />
+        </div>
+        <div className="fc-panel">
+          {/* sits BEHIND the folder tab/body (z-index:-1) but above the art */}
+          <div className="fc-pop" aria-hidden="true">
+            <span className="fc-pop-num">{n}</span>
           </div>
-
-          <div className="hm-col">
-            <div className="hm-card hm-stat">
-              <small>You're owed</small>
-              <div className="hm-big">₹3,420</div>
-              <div className="hm-delta">+₹450 this week</div>
-              <div className="hm-bars">
-                {bars.map((h, i) => (
-                  <div className="hm-b" key={i}>
-                    <span className={i === 3 ? 'hot' : ''} style={{ '--h': `${h}%`, '--k': i }} />
-                    <em>{days[i]}</em>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="hm-card hm-settle">
-              <div className="hm-settle-ic">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7" /></svg>
-              </div>
-              <div>
-                <b>2 payments</b>
-                <small>instead of 7 — settled smart</small>
-              </div>
+          <div className="fc-body">
+            <span className="fc-num"><span className="fc-num-in">{n}</span></span>
+            <div className="fc-text">
+              <h3>{title}</h3>
+              <p>{desc}</p>
             </div>
           </div>
         </div>
       </div>
-
-      <div className="hm-float hm-friends">
-        <div className="hm-stack">
-          {['R', 'A', 'S', 'P'].map((l, i) => <Av key={l} i={i} size={30} style={{ marginLeft: i ? -10 : 0, border: '2px solid #fff' }}>{l}</Av>)}
-        </div>
-        <span>+12 friends</span>
-      </div>
+    </article>
     </div>
   );
 }
@@ -598,8 +943,8 @@ export default function Landing() {
         style={{ display: 'flex', alignItems: 'center', gap: 6 }}
         onClick={() => navigate('/signup')}
       >
-        <ArrowRightIcon style={{ width: 15, height: 15, color: '#ffffff' }} />
         GET STARTED
+        <ArrowRightIcon style={{ width: 15, height: 15, color: '#ffffff' }} />
       </button>
     </>
   );
@@ -686,6 +1031,7 @@ export default function Landing() {
         }
         .lp-st.onload .w.em-grad { animation: lp-rise 1s var(--ease) both, lp-shift 6s ease-in-out infinite alternate; animation-delay: calc(var(--i) * 80ms + var(--d, 120ms)), 0s; }
         .lp-st .w.em-white { color: #fff; opacity: .78; }
+        .lp-st .w.em-solid { color: var(--blue); }
         @keyframes lp-shift { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
 
         /* ── Generic reveal ─────────────────────────────────── */
@@ -702,7 +1048,7 @@ export default function Landing() {
           display: inline-flex; align-items: center; gap: 10px;
           font-family: 'Be Vietnam Pro', sans-serif;
           font-weight: 700; font-size: 15px;
-          padding: 16px 28px; border-radius: 999px;
+          padding: 15px 26px; border-radius: 999px;
           border: 1.5px solid transparent; cursor: pointer;
           transition: transform .3s var(--ease), box-shadow .3s ease, background .25s ease, border-color .25s ease;
           will-change: transform;
@@ -725,88 +1071,44 @@ export default function Landing() {
         .lp-btn:hover .roll .r1, .lp-btn:hover .roll .r2 { transform: translateY(-100%); }
 
         /* ── HERO ───────────────────────────────────────────── */
-        .lp-hero { position: relative; padding: 76px 0 40px; overflow: clip; }
-        .lp-blob { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .55; pointer-events: none; animation: lp-drift 14s ease-in-out infinite alternate; }
-        .lp-blob.b1 { width: 520px; height: 520px; background: #c9d9ff; top: -160px; left: -140px; }
-        .lp-blob.b2 { width: 460px; height: 460px; background: #ffd9c7; top: -60px; right: -120px; animation-delay: -4s; }
-        .lp-blob.b3 { width: 380px; height: 380px; background: #e2d9ff; top: 260px; left: 38%; animation-delay: -8s; opacity: .45; }
-        @keyframes lp-drift { from { transform: translate(0,0) scale(1); } to { transform: translate(40px,30px) scale(1.12); } }
-        .lp-hero-in { text-align: center; position: relative; z-index: 2; }
-        .lp-pill {
-          display: inline-flex; align-items: center; gap: 10px;
-          background: rgba(255,255,255,.8); border: 1px solid var(--line);
-          padding: 8px 16px 8px 12px; border-radius: 999px;
-          font-weight: 700; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2);
-          opacity: 0; animation: lp-fade .9s var(--ease) .05s both;
-        }
-        .lp-pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); animation: lp-pulse 2s infinite; }
-        @keyframes lp-pulse { 0%,100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(0,86,198,.4); } 50% { opacity: .6; transform: scale(.85); box-shadow: 0 0 0 8px rgba(0,86,198,0); } }
+        .lp-hero { position: relative; min-height: calc(100vh - 72px); min-height: calc(100svh - 72px); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0; overflow: clip; background: #eeede9; }
+        .lp-hero::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 62% 52% at 50% 30%, rgba(255,255,255,.85), rgba(255,255,255,0) 70%); }
+        .lp-hero > .lp-wrap { width: 100%; }
+        .lp-hero-in { text-align: center; position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; }
         @keyframes lp-fade { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+        @keyframes lp-pulse { 0%,100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(0,86,198,.4); } 50% { opacity: .6; transform: scale(.85); box-shadow: 0 0 0 8px rgba(0,86,198,0); } }
         .lp-h1 {
           font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800;
-          font-size: clamp(50px, 8.4vw, 112px); line-height: .98; letter-spacing: -.05em;
-          margin: 26px auto 0; max-width: 980px; color: var(--ink);
+          font-size: clamp(40px, 5.8vw, 80px); line-height: 1; letter-spacing: -.045em;
+          margin: 0 auto; max-width: 900px; color: var(--ink);
         }
         .lp-sub {
-          font-size: clamp(16px, 1.6vw, 19px); line-height: 1.65; color: var(--muted);
-          max-width: 520px; margin: 26px auto 0;
+          font-size: clamp(15px, 1.3vw, 18px); line-height: 1.6; color: var(--ink-2);
+          max-width: 520px; margin: 20px auto 0;
           opacity: 0; animation: lp-fade 1s var(--ease) .75s both;
         }
-        .lp-cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-top: 34px; opacity: 0; animation: lp-fade 1s var(--ease) .95s both; }
+        .lp-cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-top: 26px; opacity: 0; animation: lp-fade 1s var(--ease) .95s both; }
+        .lp-trust { display: inline-flex; align-items: center; justify-content: center; gap: 12px; margin: 0 0 24px; padding: 6px 18px 6px 8px; border-radius: 999px; background: rgba(255,255,255,.8); border: 1px solid var(--line); font-size: 13px; font-weight: 700; color: var(--ink-2); opacity: 0; animation: lp-fade .9s var(--ease) .05s both; }
 
-        /* hero mock */
-        .hm-wrap { position: relative; max-width: 940px; margin: 72px auto 40px; opacity: 0; animation: lp-fade 1.2s var(--ease) 1.1s both; }
-        .hm-frame {
-          background: rgba(255,255,255,.7); border: 1px solid rgba(255,255,255,.9);
-          border-radius: 34px; padding: 14px; box-shadow: 0 50px 100px -30px rgba(40,50,110,.35), 0 0 0 1px var(--line);
-          -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-        }
-        .hm-bar { display: flex; gap: 6px; padding: 4px 8px 12px; }
-        .hm-bar i { width: 10px; height: 10px; border-radius: 50%; background: #e3e1dc; }
-        .hm-grid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 14px; text-align: left; }
-        .hm-col { display: flex; flex-direction: column; gap: 14px; }
-        .hm-card { background: #fff; border-radius: 24px; padding: 22px; border: 1px solid var(--line); }
-        .hm-head { display: flex; justify-content: space-between; align-items: center; font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; font-size: 18px; margin-bottom: 14px; }
-        .hm-sort { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 600; font-size: 12px; color: var(--muted); background: var(--paper); padding: 6px 12px; border-radius: 999px; }
-        .hm-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
-        .hm-row-t { flex: 1; min-width: 0; }
-        .hm-row-t b { display: block; font-family: 'Be Vietnam Pro', sans-serif; font-size: 15px; font-weight: 700; }
-        .hm-row-t small { color: var(--muted); font-size: 12px; font-weight: 500; }
-        .hm-chip { font-weight: 800; font-size: 13px; padding: 6px 12px; border-radius: 999px; font-family: 'Be Vietnam Pro', sans-serif; }
-        .hm-chip.pos { background: var(--mint); color: #0a7a57; }
-        .hm-chip.neg { background: var(--peach); color: #c24a17; }
-        .hm-foot { margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--line); font-weight: 700; font-size: 13px; color: var(--blue); }
-        .hm-stat small { color: var(--muted); font-weight: 600; font-size: 13px; }
-        .hm-big { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 900; font-size: 44px; letter-spacing: -.04em; line-height: 1.1; margin-top: 4px; }
-        .hm-delta { display: inline-block; margin-top: 6px; font-size: 12px; font-weight: 700; color: #0a7a57; background: var(--mint); padding: 4px 10px; border-radius: 999px; }
-        .hm-bars { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; height: 96px; margin-top: 18px; }
-        .hm-b { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 6px; }
-        .hm-b span { display: block; width: 100%; border-radius: 8px; background: var(--sky); height: var(--h); transform-origin: bottom; animation: lp-grow 1.1s var(--ease) both; animation-delay: calc(1.5s + var(--k) * 90ms); }
-        .hm-b span.hot { background: linear-gradient(180deg, var(--blue-2), var(--blue)); }
-        .hm-b em { font-style: normal; font-size: 11px; font-weight: 700; color: var(--muted); }
-        @keyframes lp-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
-        .hm-settle { display: flex; align-items: center; gap: 14px; padding: 16px 20px; }
-        .hm-settle b { display: block; font-family: 'Be Vietnam Pro', sans-serif; font-size: 16px; font-weight: 800; }
-        .hm-settle small { color: var(--muted); font-size: 12px; font-weight: 500; }
-        .hm-settle-ic { width: 40px; height: 40px; border-radius: 14px; background: linear-gradient(135deg, #00b386, #00a67e); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .hm-float { position: absolute; z-index: 5; animation: lp-float 6s ease-in-out infinite; }
-        @keyframes lp-float { 0%,100% { translate: 0 0; } 50% { translate: 0 -12px; } }
-        .hm-receipt {
-          right: -48px; top: -52px; width: 188px; background: rgba(255,255,255,.96);
-          border-radius: 22px; padding: 16px 18px; box-shadow: 0 24px 50px rgba(30,40,90,.2);
-          border: 1px solid var(--line); rotate: 6deg; text-align: left;
-        }
-        .hm-receipt-ic { width: 36px; height: 36px; border-radius: 12px; background: rgba(255,107,53,.14); display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
-        .hm-receipt-l { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 13px; margin-bottom: 8px; }
-        .hm-receipt-box { background: var(--paper); border-radius: 12px; padding: 8px 12px; }
-        .hm-receipt-s { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-        .hm-receipt-a { font-family: 'Be Vietnam Pro', sans-serif; font-size: 22px; font-weight: 900; color: var(--orange); letter-spacing: -.02em; }
-        .hm-friends { left: 36px; bottom: -34px; background: #fff; border-radius: 999px; padding: 10px 18px 10px 12px; display: flex; align-items: center; gap: 10px; box-shadow: 0 20px 44px rgba(30,40,90,.2); border: 1px solid var(--line); font-weight: 800; font-size: 13px; font-family: 'Be Vietnam Pro', sans-serif; animation-delay: -2.5s; }
+        .lp-arc { position: absolute; inset: 0; pointer-events: none; z-index: 0; -webkit-mask-image: linear-gradient(to bottom, transparent 38%, #000 82%); mask-image: linear-gradient(to bottom, transparent 38%, #000 82%); }
+        .lp-arc canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+        /* hero floating shapes */
+        .lp-buddies { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+        .bd { position: absolute; display: block; height: auto; filter: drop-shadow(0 18px 20px rgba(30,40,90,.2)); animation: bd-float 7s ease-in-out infinite; }
+        @keyframes bd-float { 0%,100% { translate: 0 0; } 50% { translate: 0 -14px; } }
+        .bd-arch  { width: 128px; left: 15%; top: 12%; rotate: -10deg; animation-delay: -1s; }
+        .bd-orb   { width: 140px; left: 5%; top: 40%; animation-delay: -3s; }
+        .bd-gem   { width: 44px; left: 19%; top: 56%; rotate: 12deg; animation-delay: -5s; }
+        .bd-dot   { width: 32px; right: 27%; top: 12%; animation-delay: -2s; }
+        .bd-pill  { width: 88px; right: 10%; top: 22%; rotate: 8deg; animation-delay: -4s; }
+        .bd-wedge { width: 118px; right: 15%; top: 48%; rotate: 14deg; animation-delay: -6s; }
+
         .hm-stack { display: flex; align-items: center; }
         .lp-av { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; color: #fff; font-weight: 800; font-family: 'Be Vietnam Pro', sans-serif; flex-shrink: 0; }
 
         /* ── Marquee strip ──────────────────────────────────── */
-        .lp-strip { margin-top: 56px; padding: 22px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); overflow: hidden; background: #fff; }
+        .lp-strip { margin-top: 0; padding: 22px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); overflow: hidden; background: #fff; }
         .lp-strip-track { display: flex; width: max-content; animation: lp-marquee 30s linear infinite; }
         .lp-strip-item { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; font-size: clamp(18px, 2.4vw, 28px); letter-spacing: -.02em; color: var(--ink); padding: 0 28px; display: flex; align-items: center; gap: 56px; white-space: nowrap; }
         .lp-strip-item::after { content: '✦'; color: var(--orange); font-size: .7em; }
@@ -818,14 +1120,60 @@ export default function Landing() {
         .lp-fill .fw { color: rgba(17,17,19,.14); transition: color .35s ease; }
         .lp-fill .fw.on { color: var(--ink); }
         .lp-fill .fw.em.on { color: var(--blue); }
-        .lp-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 80px; }
-        .lp-stat { background: #fff; border: 1px solid var(--line); border-radius: 28px; padding: 30px 28px; transition: transform .4s var(--ease), box-shadow .4s ease; }
-        .lp-stat:hover { transform: translateY(-6px); box-shadow: 0 24px 50px -20px rgba(30,40,90,.25); }
-        .lp-stat > b { display: block; font-family: 'Be Vietnam Pro', sans-serif; font-weight: 900; font-size: clamp(44px, 5vw, 68px); letter-spacing: -.05em; line-height: 1; }
-        .lp-stat:nth-child(1) > b { color: var(--blue); }
-        .lp-stat:nth-child(2) > b { color: var(--orange); }
-        .lp-stat:nth-child(3) > b { color: var(--violet); }
-        .lp-stat > span { display: block; margin-top: 12px; color: var(--muted); font-weight: 600; font-size: 15px; }
+        .lp-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 80px; }
+
+        /* folder cards — .fc-hit is a static, slightly larger hover zone (the card itself moves/tilts) */
+        .fc-hit { padding: 10px; margin: -10px; }
+        .fc { --frame:#0b1f55; --panel:#081338; --txt:#fff; --sub:rgba(255,255,255,.62); --acc:#5b8dff; --acc2:#e4dcff; --cut:30px; --r:22px; --mx:50%; --my:30%;
+          /* same two-layer resting shadow on every card (wide soft + tight contact) so it reads on dark frames too */
+          --sh: 0 36px 44px -26px rgba(30,40,90,.55), 0 14px 22px -14px rgba(17,17,19,.28);
+          position: relative; aspect-ratio: 1 / 1; padding: 10px; border-radius: 42px; background: var(--frame);
+          box-shadow: var(--sh); cursor: pointer; outline: none; will-change: transform;
+          transition: box-shadow .6s var(--ease); }
+        .fc { --sh-open: 0 56px 80px -30px rgba(30,40,90,.6); }
+        .fc.open { box-shadow: var(--sh-open); }
+        .fc:focus-visible { outline: 2px solid var(--orange); outline-offset: 5px; }
+        .fc.peach { --frame:#ffd2bd; --panel:#fff4ee; --txt:#111113; --sub:#6c707c; --acc:#ff5a1f; --acc2:#ffe3d4;
+          /* light frame shows the same shadow far stronger than dark ones, so tone it down to look equal */
+          --sh: 0 36px 44px -26px rgba(30,40,90,.22), 0 14px 22px -14px rgba(17,17,19,.1);
+          --sh-open: 0 56px 80px -30px rgba(30,40,90,.32); }
+        .fc.ink { --frame:#18261f; --panel:#0b1411; --acc:#14c994; --acc2:#d9fff1; }
+
+        .fc-in { position: absolute; inset: 10px; border-radius: 32px; overflow: hidden; }
+        .fc-art { position: absolute; inset: 0; overflow: hidden; }
+        .fc.sky .fc-art { background: radial-gradient(110% 80% at 15% 0%, #7a5cff 0%, transparent 60%), radial-gradient(90% 70% at 95% 35%, #2a7dff 0%, transparent 65%), linear-gradient(160deg, #3a2bd0, #0a2a8c); }
+        .fc.peach .fc-art { background: radial-gradient(100% 80% at 85% 0%, #ff6b35 0%, transparent 60%), radial-gradient(90% 80% at 0% 25%, #ffb08a 0%, transparent 65%), linear-gradient(160deg, #ff8f5e, #ffd9c7); }
+        .fc.ink .fc-art { background: radial-gradient(100% 80% at 0% 0%, #1fa37a 0%, transparent 60%), linear-gradient(160deg, #2f4f40, #0b1411); }
+        /* oversized so the parallax never reveals an edge */
+        .fc-img { position: absolute; left: -8%; top: -8%; width: 116%; height: 116%; object-fit: cover; will-change: transform; }
+        .fc-glow { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .6s ease;
+          background: radial-gradient(circle 240px at var(--mx) var(--my), rgba(255,255,255,.65), transparent 70%); mix-blend-mode: soft-light; }
+        .fc.open .fc-glow { opacity: 1; }
+
+        .fc-panel { will-change: height; position: absolute; left: 0; right: 0; bottom: 0; height: 68%; display: flex; flex-direction: column; z-index: 2; }
+
+        .fc-body { position: relative; flex: 1; min-height: 0; background: var(--panel); border-radius: var(--cut) var(--cut) 0 0; padding: 4px 28px 24px; display: flex; flex-direction: column; justify-content: flex-end; color: var(--txt); }
+        /* number on the folder surface (top of the body, no tab): sits in an overflow mask; on hover GSAP slides it down out of view */
+        .fc-num { position: absolute; left: 28px; top: 14px; overflow: hidden; padding: 0 6px 0 0; font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 56px; line-height: 1.05; letter-spacing: -.05em; color: var(--txt); }
+        .fc-num-in { display: block; will-change: transform; }
+
+        /* number that rises OUT of the folder: lives inside .fc-panel, painted behind the folder body
+           (z-index:-1) but above the art. Resting spot = fully ABOVE the folder's top edge (nothing
+           tucked behind it), anchored to that edge so it follows the dip */
+        .fc-pop { position: absolute; left: 0; right: 0; bottom: calc(100% + 2px); height: 120px; z-index: -1; display: flex; justify-content: center; align-items: flex-end; pointer-events: none; will-change: transform; }
+        .fc-pop-num {
+          display: block; will-change: transform;
+          font-family: 'Be Vietnam Pro', sans-serif; font-weight: 900; font-size: 120px; line-height: .8; letter-spacing: -.07em;
+          padding: .08em .1em .04em 0;
+          background: linear-gradient(165deg, #ffffff 0%, var(--acc2) 34%, var(--acc) 100%);
+          -webkit-background-clip: text; background-clip: text;
+          -webkit-text-fill-color: transparent; color: var(--acc2);
+          -webkit-text-stroke: 1.5px rgba(255,255,255,.7);
+          filter: drop-shadow(0 22px 22px rgba(6,12,40,.45)) drop-shadow(0 2px 0 rgba(255,255,255,.35));
+        }
+
+        .fc-text h3 { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 22px; letter-spacing: -.02em; line-height: 1.2; margin: 0 0 8px; }
+        .fc-text p { color: var(--sub); font-size: 15px; line-height: 1.55; font-weight: 500; margin: 0; }
 
         /* ── Section heads ──────────────────────────────────── */
         .lp-eyebrow { display: inline-block; font-weight: 800; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--blue); background: var(--sky); padding: 7px 14px; border-radius: 999px; margin-bottom: 20px; }
@@ -963,11 +1311,19 @@ export default function Landing() {
         /* ── Responsive ─────────────────────────────────────── */
         @media (max-width: 960px) {
           .lp-wrap { padding: 0 20px; }
-          .lp-hero { padding-top: 48px; }
-          .hm-receipt { right: -6px; top: -46px; width: 160px; }
-          .hm-friends { left: 12px; bottom: -30px; }
-          .hm-grid { grid-template-columns: 1fr; }
-          .lp-stats { grid-template-columns: 1fr; }
+          .bd-pill, .bd-gem, .bd-dot { display: none; }
+          .bd-arch { width: 76px; left: 4%; top: 3%; }
+          .bd-orb { width: 84px; left: -26px; top: 44%; }
+          .bd-wedge { width: 84px; right: -16px; top: 40%; }
+          .lp-stats { gap: 14px; }
+          .fc { border-radius: 34px; padding: 8px; }
+          .fc-in { inset: 8px; border-radius: 26px; }
+          .lp-stats { grid-template-columns: 1fr; gap: 20px; max-width: 440px; margin-left: auto; margin-right: auto; }
+          .fc-body { padding: 4px 20px 24px; }
+          .fc-num { left: 20px; font-size: 46px; }
+          .fc-pop-num { font-size: 140px; }
+          .fc-text h3 { font-size: 19px; }
+          .fc-text p { font-size: 14px; }
           .lp-scard { grid-template-columns: 1fr; padding: 32px 26px; gap: 28px; position: relative; top: 0; min-height: 0; }
           .sv-card { margin: 0; max-width: none; }
           .lp-panel { padding: 32px 22px; border-radius: 32px; }
@@ -976,6 +1332,9 @@ export default function Landing() {
           .lp-faq-side { position: static; }
           .lp-final-card { padding: 72px 22px; border-radius: 36px; }
           .lp-statement { padding: 90px 0 60px; }
+        }
+        @media (max-width: 720px) {
+          .lp-stats { grid-template-columns: 1fr; gap: 20px; }
         }
         @media (max-width: 560px) {
           .tv-split { grid-template-columns: 1fr; }
@@ -988,7 +1347,7 @@ export default function Landing() {
         @media (prefers-reduced-motion: reduce) {
           .lp *, .lp *::before, .lp *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; transition-delay: 0ms !important; animation-delay: 0ms !important; }
           .lp-strip-track, .lp-ttrack { animation: none !important; }
-          .lp-reveal, .lp-pill, .lp-sub, .lp-cta, .hm-wrap { opacity: 1 !important; transform: none !important; }
+          .lp-reveal, .lp-sub, .lp-cta, .lp-trust { opacity: 1 !important; transform: none !important; }
           .lp-st .w { transform: none !important; }
         }
       `}</style>
@@ -997,15 +1356,30 @@ export default function Landing() {
 
       {/* ── HERO ──────────────────────────────────────────────────────── */}
       <section className="lp-hero">
-        <div className="lp-blob b1" />
-        <div className="lp-blob b2" />
-        <div className="lp-blob b3" />
-        <DotPattern color="rgba(17,17,19,0.07)" style={{ inset: 0, width: '100%', height: '100%', WebkitMaskImage: 'radial-gradient(ellipse at 50% 30%, #000 0%, transparent 70%)', maskImage: 'radial-gradient(ellipse at 50% 30%, #000 0%, transparent 70%)' }} />
+        <ArcField
+          background="#eeede9"
+          baseColor="#FF0000"
+          accentColor="#FFA17A"
+          highlight="#FF5527"
+          density={112}
+          dotSize={0.35}
+          peak={1}
+          thickness={1.61}
+          falloff={6}
+          pointerRadius={236}
+          pointerStrength={0.34}
+        />
+        <HeroBuddies />
         <div className="lp-wrap lp-hero-in">
-          <span className="lp-pill"><i />Expense splitting, reimagined</span>
-          <SplitText as="h1" className="lp-h1" onLoad text={'Split Smart,\n*Live Easy.*'} />
+          <div className="lp-trust">
+            <div className="hm-stack">
+              {['R', 'A', 'S', 'P'].map((l, i) => <Av key={l} i={i} size={28} style={{ marginLeft: i ? -8 : 0, border: '2px solid #fff' }}>{l}</Av>)}
+            </div>
+            <span>Made for hostels, trips and shared flats</span>
+          </div>
+          <SplitText as="h1" className="lp-h1" onLoad accent="solid" text={'Split the bill.\n*Skip the chasing.*'} />
           <p className="lp-sub">
-            Stop the awkward "who owes what" talks. Split.ly turns group finances into a playful, stress-free experience.
+            Add what you spent and who was in. Split.ly works out the fewest payments that square everyone up, and tracks them until they're done.
           </p>
           <div className="lp-cta">
             {user ? (
@@ -1023,13 +1397,11 @@ export default function Landing() {
                   <Roll>Get Started Free</Roll><span className="arr"><ArrowRightIcon style={{ width: 13, height: 13, color: '#fff' }} /></span>
                 </button>
                 <button className="lp-btn light" onClick={scrollToWhy}>
-                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.8"/><path d="M8 7l5 3-5 3V7z" fill="currentColor"/></svg>
-                  <Roll>See How</Roll>
+                  <Roll>See how it works</Roll>
                 </button>
               </>
             )}
           </div>
-          <HeroMock />
         </div>
       </section>
 
@@ -1042,23 +1414,16 @@ export default function Landing() {
         </div>
       </div>
 
-      {/* ── STATEMENT + STATS ─────────────────────────────────────────── */}
+      {/* ── STATEMENT + FEATURES ──────────────────────────────────────── */}
       <section className="lp-statement">
         <div className="lp-wrap">
           <ScrollFill text={'Stop the awkward *who owes what* talks. Split.ly turns group finances into a *playful, stress-free* experience.'} />
           <div className="lp-stats">
-            <Reveal className="lp-stat" delay={0}>
-              <b><CountUp to={2} suffix="M+" /></b>
-              <span>friends living life without the money stress</span>
-            </Reveal>
-            <Reveal className="lp-stat" delay={120}>
-              <b><CountUp to={1} suffix=" tap" /></b>
-              <span>to mark a payment as settled</span>
-            </Reveal>
-            <Reveal className="lp-stat" delay={240}>
-              <b>∞</b>
-              <span>groups — hostels, trips, flatmates, lunches</span>
-            </Reveal>
+            {HIGHLIGHTS.map(({ n, tone, img, title, desc }, i) => (
+              <Reveal className="fc-wrap" delay={i * 120} key={title}>
+                <FolderCard n={n} tone={tone} img={img} title={title} desc={desc} />
+              </Reveal>
+            ))}
           </div>
         </div>
       </section>
@@ -1208,7 +1573,7 @@ export default function Landing() {
           <div className="lp-final-in">
             <p className="lp-final-eyebrow">Get started for free</p>
             <SplitText className="lp-final-h" accent="white" text={'Ready to\n*split smart?*'} />
-            <p className="lp-final-p" style={{ marginTop: 22 }}>Join 2M+ friends living life without the money stress.</p>
+            <p className="lp-final-p" style={{ marginTop: 22 }}>Create a group, add an expense, and settle up in a few taps.</p>
             <div className="lp-final-actions">
               {user ? (
                 <button className="lp-btn white" onClick={() => navigate('/groups')}>
