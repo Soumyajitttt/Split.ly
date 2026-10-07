@@ -518,14 +518,20 @@ function HeroBuddies() {
 
 /**
  * Folder card — closed: the folder covers ~74% of the card, with the art peeking above.
- * Hover / focus:
- *   - the folder sinks (like the reference), the art zooms + follows the cursor
- *   - a BIG glossy number rises out of the folder pocket (from behind the front panel)
- *     and floats over the art, drifting with the pointer
+ *
+ * DESKTOP (hover + fine pointer), on hover / focus:
+ *   - the folder sinks, the art zooms + follows the cursor
+ *   - a BIG glossy number rises out of the folder pocket and drifts with the pointer
  *   - the number on the folder surface slides UP out of a mask and disappears
- *   - the larger number inside the folder is revealed UPWARD (clip reveal + rise)
  *   - the card tilts in 3D and a soft spotlight tracks the pointer
- * (touch devices: plays once when the card scrolls into view)
+ *
+ * PHONE / TOUCH ("light" mode) — tuned for smooth scrolling:
+ *   - NO 3D tilt, NO image zoom/parallax, NO clip-path animation, NO blend-mode glow,
+ *     NO drop-shadow filter (those were the main lag sources on mobile GPUs)
+ *   - the big number just slides + fades in (opacity/transform only)
+ *   - plays ONCE when the card reaches the middle of the screen, then stays open
+ *     (previously it opened/closed on every scroll pass => constant layout + paint work)
+ *   - text height is measured once & cached (no forced reflow on every open/close)
  */
 const FC_CLOSED = 0.68;   /* same for every card, so all folder tops line up */
 const FC_OPEN = 0.5;      /* every card sinks to the same height — content never decides it */
@@ -552,13 +558,23 @@ function FolderCard({ n, tone, img, title, desc }) {
     const reduce = mm && mm('(prefers-reduced-motion: reduce)').matches;
     const fine = mm && mm('(hover: hover) and (pointer: fine)').matches;
     const touch = mm && mm('(hover: none)').matches;
+    const light = !fine;               /* phones / tablets: cheap animation path */
     const D = reduce ? 0 : 1;
     let io;
 
+    /* cached text height (measured once, re-measured on resize) */
+    let cachedTextH = 0;
+    const onResize = () => { cachedTextH = 0; };
+    window.addEventListener('resize', onResize, { passive: true });
+
+    const popHidden = light
+      ? { y: FC_HIDDEN_Y, autoAlpha: 0 }
+      : { y: FC_HIDDEN_Y, clipPath: CLIP_HIDDEN };
+
     const ctx = gsap.context(() => {
-      gsap.set(el, { transformPerspective: 900, transformOrigin: '50% 60%' });
+      if (!light) gsap.set(el, { transformPerspective: 900, transformOrigin: '50% 60%' });
       /* start tucked inside the folder */
-      gsap.set(pop, { y: FC_HIDDEN_Y, clipPath: CLIP_HIDDEN });
+      gsap.set(pop, popHidden);
       gsap.set(popNum, { rotation: -12, scale: 0.8, transformOrigin: '50% 100%' });
 
       const tiltX = gsap.quickTo(el, 'rotationX', { duration: 0.7, ease: 'power3' });
@@ -569,10 +585,14 @@ function FolderCard({ n, tone, img, title, desc }) {
       const popY = gsap.quickTo(popNum, 'y', { duration: 1.1, ease: 'power3' });
 
       /* tallest description among ALL cards in the row: every card reacts identically,
-         so one card's longer text can't limit (or change) how far another one moves */
+         so one card's longer text can't limit (or change) how far another one moves.
+         Cached so we don't force a layout read on every open/close. */
       const maxTextH = () => {
-        const scope = el.closest('.lp-stats') || document;
-        return Math.max(0, ...Array.from(scope.querySelectorAll('.fc-text'), t => t.offsetHeight));
+        if (!cachedTextH) {
+          const scope = el.closest('.lp-stats') || document;
+          cachedTextH = Math.max(0, ...Array.from(scope.querySelectorAll('.fc-text'), t => t.offsetHeight));
+        }
+        return cachedTextH;
       };
       /* open: sinks to a fixed fraction (the small number has slid away, so its zone is free) */
       const openH = () => Math.max(inner.offsetHeight * FC_OPEN, 4 + maxTextH() + 24 + 12);
@@ -583,6 +603,15 @@ function FolderCard({ n, tone, img, title, desc }) {
         el.classList.add('open');
         /* close() queues a delayed tween — kill pending ones so they can't undo this */
         gsap.killTweensOf([numTop, pop]);
+
+        if (light) {
+          /* lightweight: panel height + transform/opacity only */
+          gsap.to(panel, { height: openH(), duration: 0.55 * D, ease: 'power3.out', overwrite: 'auto' });
+          gsap.to(numTop, { yPercent: -125, duration: 0.3 * D, ease: 'power2.in', overwrite: 'auto' });
+          gsap.to(pop, { y: 0, autoAlpha: 1, duration: 0.65 * D, ease: 'power3.out', delay: 0.1 * D, overwrite: 'auto' });
+          gsap.to(popNum, { rotation: -5, scale: 1, duration: 0.65 * D, ease: 'power3.out', overwrite: 'auto' });
+          return;
+        }
 
         gsap.to(panel, { height: openH(), duration: 0.85 * D, ease: 'expo.out', overwrite: 'auto' });
         gsap.to(image, { scale: 1.1, duration: 1.4 * D, ease: 'expo.out', overwrite: 'auto' });
@@ -606,18 +635,26 @@ function FolderCard({ n, tone, img, title, desc }) {
         const target = closedH();
         gsap.to(panel, {
           height: target,
-          duration: 0.7 * D,
-          ease: 'expo.inOut',
+          duration: (light ? 0.5 : 0.7) * D,
+          ease: light ? 'power3.inOut' : 'expo.inOut',
           overwrite: 'auto',
           onComplete: () => {
             if (!el.classList.contains('open') && target <= H * FC_CLOSED + 0.5) gsap.set(panel, { clearProps: 'height' });
           },
         });
+
+        if (light) {
+          gsap.to(pop, { ...popHidden, duration: 0.4 * D, ease: 'power3.inOut', overwrite: 'auto' });
+          gsap.to(popNum, { rotation: -12, scale: 0.8, duration: 0.4 * D, ease: 'power3.inOut', overwrite: 'auto' });
+          gsap.fromTo(numTop, { yPercent: 125 }, { yPercent: 0, duration: 0.5 * D, ease: 'power3.out', delay: 0.15 * D, immediateRender: false, overwrite: 'auto' });
+          return;
+        }
+
         gsap.to(image, { scale: 1, duration: 1 * D, ease: 'expo.out', overwrite: 'auto' });
         gsap.to(el, { y: 0, duration: 0.7 * D, ease: 'expo.out', overwrite: 'auto' });
 
         /* number slides back into the folder, tab number returns */
-        gsap.to(pop, { y: FC_HIDDEN_Y, clipPath: CLIP_HIDDEN, duration: 0.6 * D, ease: 'expo.inOut', overwrite: 'auto' });
+        gsap.to(pop, { ...popHidden, duration: 0.6 * D, ease: 'expo.inOut', overwrite: 'auto' });
         gsap.to(popNum, { rotation: -12, scale: 0.8, duration: 0.6 * D, ease: 'expo.inOut', overwrite: 'auto' });
         /* comes back up from below the mask (so it keeps travelling the same direction) */
         gsap.fromTo(numTop, { yPercent: 125 }, { yPercent: 0, duration: 0.8 * D, ease: 'expo.out', delay: 0.3 * D, immediateRender: false, overwrite: 'auto' });
@@ -640,16 +677,21 @@ function FolderCard({ n, tone, img, title, desc }) {
         el.style.setProperty('--my', `${py * 100}%`);
       };
 
+      /* touch: play ONCE when the card reaches the middle band of the screen, then stop observing.
+         (Opening/closing on every scroll pass was what made the section stutter on phones.) */
       if (!reduce && touch && typeof IntersectionObserver !== 'undefined') {
         io = new IntersectionObserver(([entry]) => {
-          if (entry.isIntersecting) api.current.open();
-          else api.current.close();
-        }, { threshold: 0.65 });
+          if (entry.isIntersecting) {
+            api.current.open();
+            io.disconnect();
+          }
+        }, { threshold: 0, rootMargin: '-32% 0px -32% 0px' });
         io.observe(el);
       }
     }, el);
 
     return () => {
+      window.removeEventListener('resize', onResize);
       if (io) io.disconnect();
       ctx.revert();
     };
@@ -1171,6 +1213,20 @@ export default function Landing() {
 
         .fc-text h3 { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 22px; letter-spacing: -.02em; line-height: 1.2; margin: 0 0 8px; }
         .fc-text p { color: var(--sub); font-size: 15px; line-height: 1.55; font-weight: 500; margin: 0; }
+
+        /* ── Folder cards: phone / touch performance mode ───────
+           Removes the GPU-heavy bits (blend-mode glow, filter drop-shadows on clipped
+           gradient text, animated big shadows, 3D layers) that made scrolling janky. */
+        @media (hover: none), (pointer: coarse) {
+          .fc { transition: none; will-change: auto; box-shadow: 0 18px 24px -18px rgba(30,40,90,.4); }
+          .fc.peach { box-shadow: 0 18px 24px -18px rgba(30,40,90,.16); }
+          .fc.open, .fc.peach.open { box-shadow: 0 18px 24px -18px rgba(30,40,90,.4); }
+          .fc.peach.open { box-shadow: 0 18px 24px -18px rgba(30,40,90,.16); }
+          .fc-in { transform: translateZ(0); }
+          .fc-glow { display: none; }
+          .fc-img { will-change: auto; }
+          .fc-pop-num { filter: none; -webkit-text-stroke: 1px rgba(255,255,255,.6); }
+        }
 
         /* ── Section heads ──────────────────────────────────── */
         .lp-eyebrow { display: inline-block; font-weight: 800; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--blue); background: var(--sky); padding: 7px 14px; border-radius: 999px; margin-bottom: 20px; }
