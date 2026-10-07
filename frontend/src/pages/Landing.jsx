@@ -1,8 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
-import cardBlue from '../assets/cards/card-blue.png';
-import cardOrange from '../assets/cards/card-orange.png';
-import cardGreen from '../assets/cards/card-green.png';
 import { useNavigate } from 'react-router-dom';
 import Nav from '../components/layout/Nav';
 import Footer from '../components/layout/Footer';
@@ -90,9 +87,9 @@ const FAQS = [
 ];
 
 const HIGHLIGHTS = [
-  { n: '01', tone: 'sky', img: cardBlue, title: 'Split it your way', desc: 'Divide an expense equally, or enter exactly how much each person owes.' },
-  { n: '02', tone: 'peach', img: cardOrange, title: 'Settle share by share', desc: "Mark each person's share as paid. Part-paid or fully settled." },
-  { n: '03', tone: 'ink', img: cardGreen, title: 'Live updates', desc: 'Track changes as they happen. Everyone sees the same totals.' },
+  { n: '01', tone: 'sky', img: "https://i.postimg.cc/15JL7wyb/card-blue.png", title: 'Split it your way', desc: 'Divide an expense equally, or enter exactly how much each person owes.' },
+  { n: '02', tone: 'peach', img: "https://i.postimg.cc/J7cwJSgY/card-orange.png", title: 'Settle share by share', desc: "Mark each person's share as paid. Part-paid or fully settled." },
+  { n: '03', tone: 'ink', img: "https://i.postimg.cc/4NPgCjQh/card-green.png", title: 'Live updates', desc: 'Track changes as they happen. Everyone sees the same totals.' },
 ];
 
 const AVATAR_PALETTE = ['#0056c6', '#ff6b35', '#7a5cff', '#00a67e', '#e5486b', '#141414'];
@@ -529,10 +526,6 @@ function HeroBuddies() {
  *   - the larger number inside the folder is revealed UPWARD (clip reveal + rise)
  *   - the card tilts in 3D and a soft spotlight tracks the pointer
  * (touch devices: plays once when the card scrolls into view)
- *
- * PERF: the panel's height is set ONCE to the tallest state and then only moved with
- * transform (GPU). The text gets the opposite offset so it stays visually in place.
- * Look is identical to animating height, but there is no layout work per frame.
  */
 const FC_CLOSED = 0.68;   /* same for every card, so all folder tops line up */
 const FC_OPEN = 0.5;      /* every card sinks to the same height — content never decides it */
@@ -550,7 +543,6 @@ function FolderCard({ n, tone, img, title, desc }) {
     const q = s => el.querySelector(s);
     const inner = q('.fc-in');
     const panel = q('.fc-panel');
-    const text = q('.fc-text');
     const image = q('.fc-img');
     const numTop = q('.fc-num-in');     /* number on the folder surface (inside a mask) */
     const pop = q('.fc-pop');           /* rises out of the folder */
@@ -562,11 +554,6 @@ function FolderCard({ n, tone, img, title, desc }) {
     const touch = mm && mm('(hover: none)').matches;
     const D = reduce ? 0 : 1;
     let io;
-    let ro;
-    let lastW = 0;
-
-    /* decode the image up front so the first hover / scroll-in doesn't hitch */
-    if (image && image.decode) image.decode().catch(() => {});
 
     const ctx = gsap.context(() => {
       gsap.set(el, { transformPerspective: 900, transformOrigin: '50% 60%' });
@@ -592,30 +579,12 @@ function FolderCard({ n, tone, img, title, desc }) {
       /* closed: fixed fraction too (+ room for number and text if the row is very narrow) */
       const closedH = () => Math.max(inner.offsetHeight * FC_CLOSED, 85 + maxTextH() + 24);
 
-      /* Panel is fixed at the tallest height and slid down with transform.
-         Text gets the opposite offset so it stays exactly where it was. */
-      const geo = { closedY: 0, openY: 0 };
-      const layout = () => {
-        const Hc = closedH();
-        const Ho = openH();
-        const Hmax = Math.max(Hc, Ho);
-        panel.style.height = `${Hmax}px`;
-        geo.closedY = Hmax - Hc;
-        geo.openY = Hmax - Ho;
-        const y = el.classList.contains('open') ? geo.openY : geo.closedY;
-        gsap.set(panel, { y });
-        gsap.set(text, { y: -y });
-      };
-      layout();
-      lastW = el.offsetWidth;
-
       api.current.open = () => {
         el.classList.add('open');
         /* close() queues a delayed tween — kill pending ones so they can't undo this */
         gsap.killTweensOf([numTop, pop]);
 
-        gsap.to(panel, { y: geo.openY, duration: 0.85 * D, ease: 'expo.out', overwrite: 'auto' });
-        gsap.to(text, { y: -geo.openY, duration: 0.85 * D, ease: 'expo.out', overwrite: 'auto' });
+        gsap.to(panel, { height: openH(), duration: 0.85 * D, ease: 'expo.out', overwrite: 'auto' });
         gsap.to(image, { scale: 1.1, duration: 1.4 * D, ease: 'expo.out', overwrite: 'auto' });
         gsap.to(el, { y: -10, duration: 0.7 * D, ease: 'expo.out', overwrite: 'auto' });
 
@@ -632,8 +601,18 @@ function FolderCard({ n, tone, img, title, desc }) {
         el.classList.remove('open');
         gsap.killTweensOf([numTop, pop]);
 
-        gsap.to(panel, { y: geo.closedY, duration: 0.7 * D, ease: 'expo.inOut', overwrite: 'auto' });
-        gsap.to(text, { y: -geo.closedY, duration: 0.7 * D, ease: 'expo.inOut', overwrite: 'auto' });
+        const H = inner.offsetHeight;
+        /* closed height is a fixed fraction — NOT derived from text length — so folders align across cards */
+        const target = closedH();
+        gsap.to(panel, {
+          height: target,
+          duration: 0.7 * D,
+          ease: 'expo.inOut',
+          overwrite: 'auto',
+          onComplete: () => {
+            if (!el.classList.contains('open') && target <= H * FC_CLOSED + 0.5) gsap.set(panel, { clearProps: 'height' });
+          },
+        });
         gsap.to(image, { scale: 1, duration: 1 * D, ease: 'expo.out', overwrite: 'auto' });
         gsap.to(el, { y: 0, duration: 0.7 * D, ease: 'expo.out', overwrite: 'auto' });
 
@@ -661,16 +640,6 @@ function FolderCard({ n, tone, img, title, desc }) {
         el.style.setProperty('--my', `${py * 100}%`);
       };
 
-      /* re-layout only when the card's width really changed (ignores mobile address-bar resizes) */
-      if (typeof ResizeObserver !== 'undefined') {
-        ro = new ResizeObserver(() => {
-          const w = el.offsetWidth;
-          if (w !== lastW) { lastW = w; layout(); }
-        });
-        ro.observe(el);
-      }
-      if (document.fonts && document.fonts.ready) document.fonts.ready.then(layout);
-
       if (!reduce && touch && typeof IntersectionObserver !== 'undefined') {
         io = new IntersectionObserver(([entry]) => {
           if (entry.isIntersecting) api.current.open();
@@ -682,9 +651,7 @@ function FolderCard({ n, tone, img, title, desc }) {
 
     return () => {
       if (io) io.disconnect();
-      if (ro) ro.disconnect();
       ctx.revert();
-      panel.style.height = '';
     };
   }, []);
 
@@ -707,7 +674,7 @@ function FolderCard({ n, tone, img, title, desc }) {
     >
       <div className="fc-in">
         <div className="fc-art">
-          <img className="fc-img" src={img} alt="" decoding="async" draggable="false" />
+          <img className="fc-img" src={img} alt="" loading="lazy" decoding="async" draggable="false" />
           <div className="fc-glow" />
         </div>
         <div className="fc-panel">
@@ -1169,20 +1136,18 @@ export default function Landing() {
           --sh-open: 0 56px 80px -30px rgba(30,40,90,.32); }
         .fc.ink { --frame:#18261f; --panel:#0b1411; --acc:#14c994; --acc2:#d9fff1; }
 
-        /* isolation + translateZ + mask: fixes iOS flicker/glitter with rounded overflow + transforms (look unchanged) */
-        .fc-in { position: absolute; inset: 10px; border-radius: 32px; overflow: hidden; isolation: isolate; transform: translateZ(0); -webkit-mask-image: -webkit-radial-gradient(white, black); }
+        .fc-in { position: absolute; inset: 10px; border-radius: 32px; overflow: hidden; }
         .fc-art { position: absolute; inset: 0; overflow: hidden; }
         .fc.sky .fc-art { background: radial-gradient(110% 80% at 15% 0%, #7a5cff 0%, transparent 60%), radial-gradient(90% 70% at 95% 35%, #2a7dff 0%, transparent 65%), linear-gradient(160deg, #3a2bd0, #0a2a8c); }
         .fc.peach .fc-art { background: radial-gradient(100% 80% at 85% 0%, #ff6b35 0%, transparent 60%), radial-gradient(90% 80% at 0% 25%, #ffb08a 0%, transparent 65%), linear-gradient(160deg, #ff8f5e, #ffd9c7); }
         .fc.ink .fc-art { background: radial-gradient(100% 80% at 0% 0%, #1fa37a 0%, transparent 60%), linear-gradient(160deg, #2f4f40, #0b1411); }
         /* oversized so the parallax never reveals an edge */
-        .fc-img { position: absolute; left: -8%; top: -8%; width: 116%; height: 116%; object-fit: cover; will-change: transform; backface-visibility: hidden; }
-        .fc-glow { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .6s ease; will-change: opacity;
+        .fc-img { position: absolute; left: -8%; top: -8%; width: 116%; height: 116%; object-fit: cover; will-change: transform; }
+        .fc-glow { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .6s ease;
           background: radial-gradient(circle 240px at var(--mx) var(--my), rgba(255,255,255,.65), transparent 70%); mix-blend-mode: soft-light; }
         .fc.open .fc-glow { opacity: 1; }
 
-        /* height is set once from JS (tallest state); movement is transform-only */
-        .fc-panel { will-change: transform; position: absolute; left: 0; right: 0; bottom: 0; height: 68%; display: flex; flex-direction: column; z-index: 2; }
+        .fc-panel { will-change: height; position: absolute; left: 0; right: 0; bottom: 0; height: 68%; display: flex; flex-direction: column; z-index: 2; }
 
         .fc-body { position: relative; flex: 1; min-height: 0; background: var(--panel); border-radius: var(--cut) var(--cut) 0 0; padding: 4px 28px 24px; display: flex; flex-direction: column; justify-content: flex-end; color: var(--txt); }
         /* number on the folder surface (top of the body, no tab): sits in an overflow mask; on hover GSAP slides it down out of view */
@@ -1204,7 +1169,6 @@ export default function Landing() {
           filter: drop-shadow(0 22px 22px rgba(6,12,40,.45)) drop-shadow(0 2px 0 rgba(255,255,255,.35));
         }
 
-        .fc-text { will-change: transform; }
         .fc-text h3 { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 22px; letter-spacing: -.02em; line-height: 1.2; margin: 0 0 8px; }
         .fc-text p { color: var(--sub); font-size: 15px; line-height: 1.55; font-weight: 500; margin: 0; }
 
