@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
+import cardBlue from '../assets/cards/card-blue.png';
+import cardOrange from '../assets/cards/card-orange.png';
+import cardGreen from '../assets/cards/card-green.png';
 import { useNavigate } from 'react-router-dom';
 import Nav from '../components/layout/Nav';
 import Footer from '../components/layout/Footer';
@@ -87,12 +90,58 @@ const FAQS = [
 ];
 
 const HIGHLIGHTS = [
-  { n: '01', tone: 'sky', img: "https://i.postimg.cc/15JL7wyb/card-blue.png", title: 'Split it your way', desc: 'Divide an expense equally, or enter exactly how much each person owes.' },
-  { n: '02', tone: 'peach', img: "https://i.postimg.cc/J7cwJSgY/card-orange.png", title: 'Settle share by share', desc: "Mark each person's share as paid. Part-paid or fully settled." },
-  { n: '03', tone: 'ink', img: "https://i.postimg.cc/4NPgCjQh/card-green.png", title: 'Live updates', desc: 'Track changes as they happen. Everyone sees the same totals.' },
+  { n: '01', tone: 'sky', img: cardBlue, title: 'Split it your way', desc: 'Divide an expense equally, or enter exactly how much each person owes.' },
+  { n: '02', tone: 'peach', img: cardOrange, title: 'Settle share by share', desc: "Mark each person's share as paid. Part-paid or fully settled." },
+  { n: '03', tone: 'ink', img: cardGreen, title: 'Live updates', desc: 'Track changes as they happen. Everyone sees the same totals.' },
 ];
 
+// const HIGHLIGHTS = [
+//   { n: '01', tone: 'sky', img: "https://i.postimg.cc/15JL7wyb/card-blue.png", title: 'Split it your way', desc: 'Divide an expense equally, or enter exactly how much each person owes.' },
+//   { n: '02', tone: 'peach', img: "https://i.postimg.cc/J7cwJSgY/card-orange.png", title: 'Settle share by share', desc: "Mark each person's share as paid. Part-paid or fully settled." },
+//   { n: '03', tone: 'ink', img: "https://i.postimg.cc/4NPgCjQh/card-green.png", title: 'Live updates', desc: 'Track changes as they happen. Everyone sees the same totals.' },
+// ];
+
 const AVATAR_PALETTE = ['#0056c6', '#ff6b35', '#7a5cff', '#00a67e', '#e5486b', '#141414'];
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PERFORMANCE TIER
+   ────────────────────────────────────────────────────────────────────────────
+   Capable devices get EVERYTHING (full hover effects, tilt, parallax, glow, blur).
+   Only devices that are detected as weak — or that measurably can't hold ~38fps —
+   switch to "lite", which keeps the layout / reveals / hover open-close but drops the
+   GPU-expensive extras (see `.lp.lite` CSS + FolderCard `cheap` path + ArcField quality).
+
+   1. Static hints (instant): Save-Data, deviceMemory <= 2GB, <= 2 CPU threads.
+   2. Runtime probe (Landing): measures real fps after first paint; < 38fps => lite.
+   3. ArcField also lowers its own render resolution on the fly if frames are slow.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+const detectLite = () => {
+  if (typeof navigator === 'undefined') return false;
+  const nav = navigator;
+  const conn = nav.connection || {};
+  if (conn.saveData) return true;
+  if (nav.deviceMemory && nav.deviceMemory <= 2) return true;
+  if (nav.hardwareConcurrency && nav.hardwareConcurrency <= 2) return true;
+  return false;
+};
+const perf = { lite: detectLite() };
+
+/** Pauses every CSS animation inside the element while it is off-screen (no re-render, DOM attribute only). */
+function usePauseOffscreen() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return undefined;
+    const io = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) el.removeAttribute('data-off');
+      else el.setAttribute('data-off', '1');
+    }, { rootMargin: '120px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return ref;
+}
 
 /* ════════════════════════════════════════════════════════════════════════════
    HOOKS & SMALL PRIMITIVES
@@ -319,7 +368,16 @@ const arcHex = hex => {
   return [parseInt(h.slice(0, 2), 16) / 255, parseInt(h.slice(2, 4), 16) / 255, parseInt(h.slice(4, 6), 16) / 255];
 };
 
-/** Predictive Arc (Originkit) — dotted glow band that follows the pointer. */
+/**
+ * Predictive Arc (Originkit) — dotted glow band that follows the pointer.
+ *
+ * Performance: this is the heaviest thing on the page (full-hero fragment shader).
+ *  - full resolution on capable GPUs (identical look to before)
+ *  - ADAPTIVE resolution: if the average frame time is poor, the render scale steps down
+ *    (1 -> .8 -> .64 -> .5) until it holds frame rate; it never steps back up (no oscillation)
+ *  - lite devices start at 0.6 scale and render at ~30fps
+ *  - stops entirely when the hero is off-screen; ignores pointer when off-screen
+ */
 function ArcField({
   className = '',
   background = '#eeede9',
@@ -341,7 +399,7 @@ function ArcField({
     const canvas = canvasRef.current;
     const wrap = wrapRef.current;
     if (!canvas || !wrap) return undefined;
-    const gl = canvas.getContext('webgl', { alpha: false, antialias: false, depth: false });
+    const gl = canvas.getContext('webgl', { alpha: false, antialias: false, depth: false, powerPreference: 'low-power' });
     if (!gl) return undefined;
 
     const compile = (type, src) => {
@@ -375,7 +433,16 @@ function ArcField({
     const ps = { x: 0, y: 0, tx: 0, ty: 0, a: 0, ta: 0 };
     const colors = { bg: arcHex(background), base: arcHex(baseColor), accent: arcHex(accentColor), high: arcHex(highlight) };
 
+    let raf = 0;
+    let visible = true;
+    let last = performance.now();
+    let clock = 0;
+    let quality = perf.lite ? 0.6 : 1;   /* render-resolution multiplier (only ever goes down) */
+    let accDt = 0;
+    let accN = 0;
+
     const onMove = e => {
+      if (!visible) return;
       const r = canvas.getBoundingClientRect();
       const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
       ps.ta = inside ? 1 : 0;
@@ -386,17 +453,32 @@ function ArcField({
     window.addEventListener('pointermove', onMove, { passive: true });
     document.addEventListener('pointerleave', onLeave);
 
-    let raf = 0;
-    let visible = true;
-    let last = performance.now();
-    let clock = 0;
-
     const draw = now => {
-      const dt = Math.min(0.05, (now - last) / 1000);
+      /* lite devices: cap at ~30fps (skip frames, keep `last` so dt stays correct) */
+      if (perf.lite && now - last < 30) {
+        raf = (!reduce && visible) ? requestAnimationFrame(draw) : 0;
+        return;
+      }
+
+      const rawDt = (now - last) / 1000;
+      const dt = Math.min(0.05, rawDt);
       last = now;
       if (!reduce) clock = (clock + dt * 0.9) % 6283;
 
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      /* adaptive resolution: judge every 40 frames, ignore tab-switch gaps */
+      if (!reduce && rawDt < 0.25) {
+        accDt += rawDt;
+        accN += 1;
+        if (accN >= 40) {
+          const avg = accDt / accN;
+          const limit = perf.lite ? 0.045 : 0.028;   /* ~22fps on lite, ~36fps otherwise */
+          if (avg > limit && quality > 0.5) quality = Math.max(0.5, quality * 0.8);
+          accDt = 0;
+          accN = 0;
+        }
+      }
+
+      const dpr = Math.min(window.devicePixelRatio || 1, 2) * quality;
       const cw = canvas.clientWidth || 1200;
       const ch = canvas.clientHeight || 800;
       const bw = Math.max(1, Math.round(cw * dpr));
@@ -519,20 +601,19 @@ function HeroBuddies() {
 /**
  * Folder card — closed: the folder covers ~74% of the card, with the art peeking above.
  *
- * DESKTOP (hover + fine pointer), on hover / focus — FULL animation, unchanged:
+ * FULL path (capable desktop: hover + fine pointer) — unchanged:
  *   - the folder sinks, the art zooms + follows the cursor
  *   - a BIG glossy number rises out of the folder pocket and drifts with the pointer
  *   - the number on the folder surface slides UP out of a mask and disappears
  *   - the card tilts in 3D and a soft spotlight tracks the pointer
  *
- * PHONE / TOUCH ("light" mode) — tuned for smooth scrolling:
+ * CHEAP path ("light" = phone/touch, or "lite" = weak desktop):
  *   - NO 3D tilt, NO image zoom/parallax, NO clip-path animation, NO blend-mode glow,
- *     NO drop-shadow filter (those were the main lag sources on mobile GPUs)
+ *     NO drop-shadow filter (those were the main lag sources on weak GPUs)
  *   - the big number just slides + fades in (opacity/transform only)
- *   - OPENS when the card enters the middle band of the screen and CLOSES again once it
- *     scrolls out of a wider band (hysteresis: the close band contains the open band, so
- *     the card can never flicker open/closed while it sits near the edge)
- *   - state is tracked in a flag, so each transition fires exactly once per crossing
+ *   - touch:  OPENS when the card enters the middle band of the screen and CLOSES again once it
+ *             scrolls out of a wider band (hysteresis, no flicker, no per-frame JS)
+ *   - weak desktop: still opens on hover/focus and closes on leave — just with the cheap animation
  *   - text height is measured once & cached (no forced reflow on every open/close)
  */
 const FC_CLOSED = 0.68;   /* same for every card, so all folder tops line up */
@@ -559,7 +640,8 @@ function FolderCard({ n, tone, img, title, desc }) {
     const mm = window.matchMedia;
     const reduce = mm && mm('(prefers-reduced-motion: reduce)').matches;
     const fine = mm && mm('(hover: hover) and (pointer: fine)').matches;
-    const light = !fine;               /* phones / tablets: cheap animation path */
+    const light = !fine;               /* phones / tablets: scroll-driven open/close */
+    const cheap = light || perf.lite;  /* cheap animation path (touch OR weak desktop) */
     const D = reduce ? 0 : 1;
     let io;
     let ioClose;
@@ -571,12 +653,12 @@ function FolderCard({ n, tone, img, title, desc }) {
     const onResize = () => { cachedTextH = 0; };
     window.addEventListener('resize', onResize, { passive: true });
 
-    const popHidden = light
+    const popHidden = cheap
       ? { y: FC_HIDDEN_Y, autoAlpha: 0 }
       : { y: FC_HIDDEN_Y, clipPath: CLIP_HIDDEN };
 
     const ctx = gsap.context(() => {
-      if (!light) gsap.set(el, { transformPerspective: 900, transformOrigin: '50% 60%' });
+      if (!cheap) gsap.set(el, { transformPerspective: 900, transformOrigin: '50% 60%' });
       /* start tucked inside the folder */
       gsap.set(pop, popHidden);
       gsap.set(popNum, { rotation: -12, scale: 0.8, transformOrigin: '50% 100%' });
@@ -608,7 +690,7 @@ function FolderCard({ n, tone, img, title, desc }) {
         /* close() queues a delayed tween — kill pending ones so they can't undo this */
         gsap.killTweensOf([numTop, pop]);
 
-        if (light) {
+        if (cheap) {
           /* lightweight: panel height + transform/opacity only */
           gsap.to(panel, { height: openH(), duration: 0.55 * D, ease: 'power3.out', overwrite: 'auto' });
           gsap.to(numTop, { yPercent: -125, duration: 0.3 * D, ease: 'power2.in', overwrite: 'auto' });
@@ -639,15 +721,15 @@ function FolderCard({ n, tone, img, title, desc }) {
         const target = closedH();
         gsap.to(panel, {
           height: target,
-          duration: (light ? 0.5 : 0.7) * D,
-          ease: light ? 'power3.inOut' : 'expo.inOut',
+          duration: (cheap ? 0.5 : 0.7) * D,
+          ease: cheap ? 'power3.inOut' : 'expo.inOut',
           overwrite: 'auto',
           onComplete: () => {
             if (!el.classList.contains('open') && target <= H * FC_CLOSED + 0.5) gsap.set(panel, { clearProps: 'height' });
           },
         });
 
-        if (light) {
+        if (cheap) {
           gsap.to(pop, { ...popHidden, duration: 0.4 * D, ease: 'power3.inOut', overwrite: 'auto' });
           gsap.to(popNum, { rotation: -12, scale: 0.8, duration: 0.4 * D, ease: 'power3.inOut', overwrite: 'auto' });
           gsap.fromTo(numTop, { yPercent: 125 }, { yPercent: 0, duration: 0.5 * D, ease: 'power3.out', delay: 0.15 * D, immediateRender: false, overwrite: 'auto' });
@@ -666,7 +748,8 @@ function FolderCard({ n, tone, img, title, desc }) {
       };
 
       api.current.move = e => {
-        if (!fine || reduce) return;
+        /* pointer-follow (tilt / parallax / glow) is skipped on weak devices — also if the fps probe flips to lite later */
+        if (!fine || reduce || perf.lite) return;
         const r = el.getBoundingClientRect();
         const px = (e.clientX - r.left) / r.width;
         const py = (e.clientY - r.top) / r.height;
@@ -878,6 +961,14 @@ export default function Landing() {
   const [tab, setTab] = useState(0);
   const [tabPaused, setTabPaused] = useState(false);
   const [openFaq, setOpenFaq] = useState(0);
+  const [lite, setLite] = useState(perf.lite);
+
+  /* off-screen sections pause their infinite CSS animations */
+  const heroPause = usePauseOffscreen();
+  const stripPause = usePauseOffscreen();
+  const howPause = usePauseOffscreen();
+  const featPause = usePauseOffscreen();
+  const testiPause = usePauseOffscreen();
 
   const scrollToWhy = () => whyRef.current?.scrollIntoView({ behavior: 'smooth' });
 
@@ -896,6 +987,30 @@ export default function Landing() {
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  /* runtime fps probe: if the page can't hold ~38fps right after first paint, switch to lite mode.
+     Capable devices (60fps) pass and keep every effect. Runs once, ~1.5s sample, tab-hidden safe. */
+  useEffect(() => {
+    if (perf.lite) return undefined;
+    let raf = 0;
+    let cancelled = false;
+    let t0 = 0;
+    let frames = 0;
+    const tick = now => {
+      if (cancelled) return;
+      if (document.hidden) { t0 = 0; frames = 0; raf = requestAnimationFrame(tick); return; }
+      if (!t0) { t0 = now; frames = 0; }
+      frames += 1;
+      const span = now - t0;
+      if (span >= 1500) {
+        if ((frames * 1000) / span < 38) { perf.lite = true; setLite(true); }
+        return;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    const start = setTimeout(() => { raf = requestAnimationFrame(tick); }, 1200);
+    return () => { cancelled = true; clearTimeout(start); if (raf) cancelAnimationFrame(raf); };
   }, []);
 
   /* feature tabs auto-advance (pauses on hover; resets whenever tab changes) */
@@ -1018,7 +1133,7 @@ export default function Landing() {
   ];
 
   return (
-    <div className={`page-enter lp ${scrolled ? 'lp-scrolled' : ''}`} style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <div className={`page-enter lp ${scrolled ? 'lp-scrolled' : ''} ${lite ? 'lite' : ''}`} style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
@@ -1046,6 +1161,9 @@ export default function Landing() {
         }
         .lp *, .lp *::before, .lp *::after { box-sizing: border-box; }
         .lp-wrap { max-width: 1180px; margin: 0 auto; padding: 0 32px; position: relative; }
+
+        /* ── Off-screen sections: pause every CSS animation inside (toggled via data-off) ── */
+        .lp [data-off], .lp [data-off] *, .lp [data-off] *::before, .lp [data-off] *::after { animation-play-state: paused !important; }
 
         /* ── Nav restyle (scoped) ───────────────────────────── */
         .lp nav {
@@ -1342,7 +1460,8 @@ export default function Landing() {
         .tv-members { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 14px; color: var(--ink-2); }
 
         /* ── Testimonials ───────────────────────────────────── */
-        .lp-testi { padding: 20px 0 120px; overflow: hidden; }
+        /* content-visibility: the browser skips layout/paint of this block until it is near the viewport */
+        .lp-testi { padding: 20px 0 120px; overflow: hidden; content-visibility: auto; contain-intrinsic-size: auto 760px; }
         .lp-twrap { overflow: hidden; -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent); padding: 14px 0; }
         .lp-ttrack { display: flex; gap: 18px; width: max-content; animation: lp-marquee 55s linear infinite; }
         .lp-ttrack.rev { animation-direction: reverse; animation-duration: 62s; }
@@ -1383,6 +1502,25 @@ export default function Landing() {
         .lp-final h2 { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 800; font-size: clamp(46px, 7.4vw, 100px); line-height: .98; letter-spacing: -.05em; margin: 0 auto 22px; max-width: 800px; }
         .lp-final-p { color: rgba(255,255,255,.8); font-size: 18px; margin-bottom: 42px; line-height: 1.6; }
         .lp-final-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+        /* ── LITE MODE ──────────────────────────────────────────
+           Only applied to weak devices (static hints) or when the fps probe measures < 38fps.
+           Layout, reveals, hover open/close and all colours stay; only the GPU-expensive extras go:
+           backdrop blur, drop-shadow filters, always-on floating shapes, animated gradient text,
+           blend-mode glow, big blurred shadows. */
+        .lp.lite nav, .lp.lite.lp-scrolled nav { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(247,246,242,.97); }
+        .lp.lite .lp-tag { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(255,255,255,.22); }
+        .lp.lite .bd { filter: none; animation: none; }
+        .lp.lite .lp-st .w.em-grad { animation: none; }
+        .lp.lite .lp-st.onload .w.em-grad { animation: lp-rise 1s var(--ease) both; animation-delay: calc(var(--i) * 80ms + var(--d, 120ms)); }
+        .lp.lite .fc, .lp.lite .fc.open { transition: none; will-change: auto; box-shadow: 0 18px 24px -18px rgba(30,40,90,.4); }
+        .lp.lite .fc.peach, .lp.lite .fc.peach.open { box-shadow: 0 18px 24px -18px rgba(30,40,90,.16); }
+        .lp.lite .fc-glow { display: none; }
+        .lp.lite .fc-img { will-change: auto; }
+        .lp.lite .fc-pop-num { filter: none; -webkit-text-stroke: 1px rgba(255,255,255,.6); }
+        .lp.lite .lp-scard, .lp.lite .sv-card, .lp.lite .tv-card { box-shadow: 0 14px 24px -16px rgba(30,40,90,.25); }
+        .lp.lite .lp-btn.dark { box-shadow: 0 8px 16px rgba(17,17,19,.18); }
+        .lp.lite .lp-tcard:hover { box-shadow: none; }
 
         /* ── Responsive ─────────────────────────────────────── */
         @media (max-width: 960px) {
@@ -1431,7 +1569,7 @@ export default function Landing() {
       <Nav actions={navActions} />
 
       {/* ── HERO ──────────────────────────────────────────────────────── */}
-      <section className="lp-hero">
+      <section className="lp-hero" ref={heroPause}>
         <ArcField
           background="#eeede9"
           baseColor="#FF0000"
@@ -1482,7 +1620,7 @@ export default function Landing() {
       </section>
 
       {/* ── MARQUEE STRIP ─────────────────────────────────────────────── */}
-      <div className="lp-strip" aria-hidden="true">
+      <div className="lp-strip" aria-hidden="true" ref={stripPause}>
         <div className="lp-strip-track">
           {allMarquee.map((item, i) => (
             <span className="lp-strip-item" key={i}>{item}</span>
@@ -1505,7 +1643,10 @@ export default function Landing() {
       </section>
 
       {/* ── HOW IT WORKS ──────────────────────────────────────────────── */}
-      <section className="lp-how" ref={whyRef}>
+      <section
+        className="lp-how"
+        ref={el => { whyRef.current = el; howPause.current = el; }}
+      >
         <div className="lp-wrap">
           <div className="lp-head">
             <Reveal><span className="lp-eyebrow">How it works</span></Reveal>
@@ -1528,7 +1669,7 @@ export default function Landing() {
       </section>
 
       {/* ── BUILT FOR REAL LIFE (tabs) ────────────────────────────────── */}
-      <section className="lp-feat">
+      <section className="lp-feat" ref={featPause}>
         <div className="lp-wrap">
           <div className="lp-head">
             <Reveal><span className="lp-eyebrow">Features</span></Reveal>
@@ -1578,7 +1719,7 @@ export default function Landing() {
       </section>
 
       {/* ── TESTIMONIALS ──────────────────────────────────────────────── */}
-      <section className="lp-testi">
+      <section className="lp-testi" ref={testiPause}>
         <div className="lp-wrap">
           <div className="lp-head">
             <Reveal><span className="lp-eyebrow">What people say</span></Reveal>
