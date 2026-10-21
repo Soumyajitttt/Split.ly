@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "test": "node --test"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
