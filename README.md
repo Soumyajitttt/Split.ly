@@ -7,6 +7,8 @@
       |_|                    |___/
 ```
 
+[![CI](https://github.com/Soumyajitttt/Split.ly/actions/workflows/ci.yml/badge.svg)](https://github.com/Soumyajitttt/Split.ly/actions/workflows/ci.yml)
+
 **Split expenses with friends. Track who owes what. Settle up.**
 
 Split.ly is a full-stack expense-splitting application built with React and Node.js. Create groups, add shared expenses, choose equal or custom splits, track balances, and settle debts with friends. The application supports email/password authentication, Google OAuth, real-time communication, email notifications, and a responsive modern UI.
@@ -21,6 +23,7 @@ Split.ly is a full-stack expense-splitting application built with React and Node
 - [Prerequisites](#prerequisites)
 - [Backend Setup](#backend-setup)
 - [Frontend Setup](#frontend-setup)
+- [Testing and CI](#testing-and-ci)
 - [Environment Variables](#environment-variables)
 - [Google OAuth Setup](#google-oauth-setup)
 - [API Reference](#api-reference)
@@ -235,6 +238,29 @@ To preview the production build:
 ```bash
 npm run preview
 ```
+
+---
+
+## Testing and CI
+
+The backend uses Node's built-in test runner (no extra dependencies):
+
+```bash
+cd backend
+npm test
+```
+
+The suite covers the pure business-logic utilities:
+
+| File | What is tested |
+|------|----------------|
+| `settleBalances.js` | Debt simplification: equal and custom splits, circular chains, one-to-many and many-to-one balances, settlements, `settledBy`, cent rounding, money conservation, and the `n-1` transfer bound |
+| `formatExpenses.js` | Per-user view of an expense: payer vs participant status, `youOwe` / `othersOweYou`, settlement records |
+| `parseDuration.js` | Token-expiry parsing used for cookie `maxAge` |
+
+The greedy algorithm never needs more than `n-1` transfers but does not always find the minimum; one test documents a concrete case (5 transfers against an optimal 4).
+
+GitHub Actions (`.github/workflows/ci.yml`) runs the backend tests and a production frontend build on every push to `main` and on every pull request. Deployment is not part of this workflow.
 
 ---
 
